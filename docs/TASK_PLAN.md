@@ -14,6 +14,8 @@ This plan adds a review queue, decision receipts, and update comparisons, and ma
 
 These development labels are separate from the operator queue priorities (Immediate / High / Scheduled / Routine).
 
+> **Update, 31 Oct:** the organisers' data notes changed the ML target to each encounter's final tier, predicted from messages ≥ 2 days before closest approach. [ML_DECISIONS.md](ML_DECISIONS.md) records how this changes SG-01.3, SG-02.3, SG-03, and SG-05. Where the two documents disagree, ML_DECISIONS.md applies.
+
 ## Ownership
 
 | Owner | Area | Stories |
