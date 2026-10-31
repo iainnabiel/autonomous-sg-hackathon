@@ -74,7 +74,7 @@ export function ConfusionMatrix({ result }: { result: CohortResult }) {
             const r = result.per_tier[t]
             return (
               <tr key={t} className="border-t border-line text-ink-2">
-                <td className="py-1" style={{ color: TIER_META[t].color }}>{t}</td>
+                <td className="py-1" style={{ color: TIER_META[t.toLowerCase() as 'critical' | 'elevated' | 'safe'].color }}>{t}</td>
                 <td className="tabular py-1 text-right">{r.precision.toFixed(3)}</td>
                 <td className="tabular py-1 text-right">{r.recall.toFixed(3)}</td>
                 <td className="tabular py-1 text-right">{r.support.toLocaleString()}</td>

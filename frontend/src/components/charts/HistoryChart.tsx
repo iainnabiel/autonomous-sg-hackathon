@@ -1,7 +1,6 @@
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { HistoryEntry, Tier } from '../../api/types'
-import { formatDays, formatDistance, formatLogPc, formatPc } from '../../lib/format'
-import { CRITICAL_LOG10_PC, CRITICAL_MISS_DISTANCE_M, EARLY_CUTOFF_DAYS, ELEVATED_LOG10_PC, ELEVATED_MISS_DISTANCE_M, RISK_FLOOR, UPCOMING_URGENCY_DAYS, isEarlyEligible } from '../../lib/policy'
+import type { Observation } from '../../api/types'
+import { PC_FLOOR, formatDays, formatDistance, formatLogPc, formatPc } from '../../lib/format'
 import { TIER_META } from '../../lib/taxonomy'
 
 const AXIS = { fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--color-ink-3)' }
@@ -18,40 +17,37 @@ interface Point {
   pcPlot: number | null
   floor: boolean
   miss: number | null
-  tier: Tier | null
+  tier: Observation['rule_tier']
   input: boolean
-  carried: boolean
-  forecastTier: Tier | null
+  flags: string[]
 }
 
 /**
- * Assessment history across updates (SG-08.2): the supplied log10 Pc and miss distance of each message, each on
- * its own axis, against that message's own days to closest approach. Points inside the 2-day cutoff are hollow:
- * the model never saw them. The forecast tier is not drawn as a value; p_critical is never drawn as Pc.
- * Lines join successive messages; they are not motion.
+ * Assessment history across updates (SG-08.2): supplied log10 Pc and supplied miss distance,
+ * each on its own axis, against days to closest approach. Points inside the 2-day model cutoff
+ * are hollow: the model never saw them. Lines join successive messages; they are not motion.
  */
-export function HistoryChart({ history }: { history: HistoryEntry[] }) {
-  const data: Point[] = history.map((e, i) => {
-    const o = e.observation
-    return {
-      days: o.time_to_tca_days,
-      update: i + 1,
+export function HistoryChart({ history, cutoffHours, urgentHours }: { history: Observation[]; cutoffHours: number; urgentHours: number }) {
+  const data: Point[] = history
+    .filter((o) => o.tca_hours !== null)
+    .map((o) => ({
+      days: o.tca_hours! / 24,
+      update: o.update_index,
       id: o.observation_id,
-      pc: o.risk_log10_pc,
-      pcPlot: o.risk_log10_pc === null ? null : o.risk_log10_pc <= RISK_FLOOR ? FLOOR_SHELF : Math.max(o.risk_log10_pc, FLOOR_SHELF + 0.5),
-      floor: o.risk_log10_pc !== null && o.risk_log10_pc <= RISK_FLOOR,
+      pc: o.log10_pc,
+      pcPlot: o.log10_pc === null ? null : o.log10_pc <= PC_FLOOR ? FLOOR_SHELF : Math.max(o.log10_pc, FLOOR_SHELF + 0.5),
+      floor: o.log10_pc !== null && o.log10_pc <= PC_FLOOR,
       miss: o.miss_distance_m,
-      tier: e.current_rule_tier,
-      input: isEarlyEligible(o.time_to_tca_days),
-      carried: e.forecast?.status === 'carried_forward',
-      forecastTier: e.forecast?.forecast_final_tier ?? null,
-    }
-  })
+      tier: o.rule_tier,
+      input: o.model_input,
+      flags: o.quality_flags,
+    }))
   if (data.length === 0) return <p className="px-5 py-10 text-center text-sm text-ink-3">No history for this encounter.</p>
 
-  const maxDays = Math.max(...data.map((d) => d.days), EARLY_CUTOFF_DAYS) + 0.4
-  const minDays = Math.min(0, ...data.map((d) => d.days))
-  const xDomain: [number, number] = [Math.floor(minDays), Math.ceil(maxDays)]
+  const maxDays = Math.max(...data.map((d) => d.days), cutoffHours / 24) + 0.4
+  const xDomain: [number, number] = [0, Math.ceil(maxDays)]
+  const cutoffDays = cutoffHours / 24
+  const urgentDays = urgentHours / 24
 
   const pcValues = data.map((d) => d.pcPlot).filter((v): v is number => v !== null && v > FLOOR_SHELF)
   const pcMin = pcValues.length ? Math.min(...pcValues) : -8
@@ -62,15 +58,25 @@ export function HistoryChart({ history }: { history: HistoryEntry[] }) {
   const pcTicks = anyFloor ? [FLOOR_SHELF, ...range(pcDomain[0], pcDomain[1], pcStep)] : range(pcDomain[0], pcDomain[1], pcStep)
 
   const missValues = data.map((d) => d.miss).filter((v): v is number => v !== null && v > 0)
-  const missLo = missValues.length ? 10 ** Math.floor(Math.log10(Math.min(...missValues, CRITICAL_MISS_DISTANCE_M))) : 100
-  const missHi = missValues.length ? 10 ** Math.ceil(Math.log10(Math.max(...missValues, ELEVATED_MISS_DISTANCE_M))) : 10_000
+  const missLo = missValues.length ? 10 ** Math.floor(Math.log10(Math.min(...missValues, 1000))) : 100
+  const missHi = missValues.length ? 10 ** Math.ceil(Math.log10(Math.max(...missValues, 5000))) : 10_000
   const missTicks = range(Math.log10(missLo), Math.log10(missHi), 1).map((e) => 10 ** e)
 
   const xAxis = (
-    <XAxis type="number" dataKey="days" reversed domain={xDomain} tick={AXIS} tickLine={false} axisLine={{ stroke: GRID }} tickFormatter={(v: number) => `${v}d`} label={{ value: 'days to closest approach →', position: 'bottom', offset: 0, ...AXIS }} />
+    <XAxis
+      type="number"
+      dataKey="days"
+      reversed
+      domain={xDomain}
+      tick={AXIS}
+      tickLine={false}
+      axisLine={{ stroke: GRID }}
+      tickFormatter={(v: number) => `${v}d`}
+      label={{ value: 'days to closest approach →', position: 'bottom', offset: 0, ...AXIS }}
+    />
   )
-  const cutoff = <ReferenceLine x={EARLY_CUTOFF_DAYS} stroke="var(--color-violet)" strokeOpacity={0.6} strokeDasharray="2 4" label={{ value: 'model cutoff', position: 'insideTopLeft', ...AXIS, fill: 'var(--color-violet)', fontSize: 9 }} />
-  const urgent = <ReferenceLine x={UPCOMING_URGENCY_DAYS} stroke="var(--color-signal)" strokeOpacity={0.35} strokeDasharray="2 4" label={{ value: '1 d', position: 'insideBottomRight', ...AXIS, fill: 'var(--color-signal)', fontSize: 9 }} />
+  const cutoff = <ReferenceLine x={cutoffDays} stroke="var(--color-violet)" strokeOpacity={0.6} strokeDasharray="2 4" label={{ value: 'model cutoff', position: 'insideTopLeft', ...AXIS, fill: 'var(--color-violet)', fontSize: 9 }} />
+  const urgent = <ReferenceLine x={urgentDays} stroke="var(--color-signal)" strokeOpacity={0.35} strokeDasharray="2 4" label={{ value: `${urgentHours} h`, position: 'insideBottomRight', ...AXIS, fill: 'var(--color-signal)', fontSize: 9 }} />
 
   return (
     <div>
@@ -78,10 +84,7 @@ export function HistoryChart({ history }: { history: HistoryEntry[] }) {
         <figure>
           <figcaption className="mb-2 flex items-baseline justify-between px-3">
             <span className="text-xs text-ink-2">log₁₀ Pc · supplied</span>
-            <span className="font-mono text-[10px] text-ink-3">
-              thresholds {CRITICAL_LOG10_PC} / {ELEVATED_LOG10_PC}
-              {anyFloor ? ' · ▽ reporting floor' : ''}
-            </span>
+            <span className="font-mono text-[10px] text-ink-3">thresholds −4 / −6{anyFloor ? ' · ▽ reporting floor' : ''}</span>
           </figcaption>
           <div className="h-52">
             <ResponsiveContainer>
@@ -89,8 +92,8 @@ export function HistoryChart({ history }: { history: HistoryEntry[] }) {
                 <CartesianGrid stroke={GRID} vertical={false} />
                 {xAxis}
                 <YAxis type="number" domain={yDomainPc} ticks={pcTicks} tick={AXIS} tickLine={false} axisLine={false} tickFormatter={(v: number) => (v === FLOOR_SHELF ? '▽' : v.toFixed(0))} />
-                <ReferenceLine y={CRITICAL_LOG10_PC} stroke="var(--color-critical)" strokeOpacity={0.5} strokeDasharray="3 3" />
-                <ReferenceLine y={ELEVATED_LOG10_PC} stroke="var(--color-elevated)" strokeOpacity={0.5} strokeDasharray="3 3" />
+                <ReferenceLine y={-4} stroke="var(--color-critical)" strokeOpacity={0.5} strokeDasharray="3 3" />
+                <ReferenceLine y={-6} stroke="var(--color-elevated)" strokeOpacity={0.5} strokeDasharray="3 3" />
                 {cutoff}
                 {urgent}
                 <Tooltip content={<HistoryTooltip />} cursor={{ stroke: 'var(--color-line-strong)' }} />
@@ -111,8 +114,8 @@ export function HistoryChart({ history }: { history: HistoryEntry[] }) {
                 <CartesianGrid stroke={GRID} vertical={false} />
                 {xAxis}
                 <YAxis type="number" scale="log" domain={[missLo, missHi]} ticks={missTicks} tick={AXIS} tickLine={false} axisLine={false} tickFormatter={(v: number) => (v >= 1000 ? `${v / 1000}k` : String(v))} />
-                <ReferenceLine y={CRITICAL_MISS_DISTANCE_M} stroke="var(--color-critical)" strokeOpacity={0.5} strokeDasharray="3 3" />
-                <ReferenceLine y={ELEVATED_MISS_DISTANCE_M} stroke="var(--color-elevated)" strokeOpacity={0.5} strokeDasharray="3 3" />
+                <ReferenceLine y={1000} stroke="var(--color-critical)" strokeOpacity={0.5} strokeDasharray="3 3" />
+                <ReferenceLine y={5000} stroke="var(--color-elevated)" strokeOpacity={0.5} strokeDasharray="3 3" />
                 {cutoff}
                 {urgent}
                 <Tooltip content={<HistoryTooltip />} cursor={{ stroke: 'var(--color-line-strong)' }} />
@@ -124,12 +127,12 @@ export function HistoryChart({ history }: { history: HistoryEntry[] }) {
       </div>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 pb-3 font-mono text-[10px] text-ink-3">
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full border-2 border-ink-2 bg-ink-2" /> eligible model input (≥ {EARLY_CUTOFF_DAYS} d out)
+          <span className="size-2 rounded-full border-2 border-ink-2 bg-ink-2" /> model input (≥ {cutoffHours / 24} d out)
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-full border-2 border-ink-2 bg-panel" /> inside cutoff · forecast carried forward, not recomputed
+          <span className="size-2 rounded-full border-2 border-ink-2 bg-panel" /> after cutoff · not seen by the model
         </span>
-        <span>point colour = current rule tier of that message</span>
+        <span>point colour = rule tier of that message</span>
         <span className="ml-auto">each point is one message · lines join updates, not motion</span>
       </div>
     </div>
@@ -160,7 +163,7 @@ function HistoryTooltip({ active, payload }: { active?: boolean; payload?: { pay
   return (
     <div className="rounded-md border border-line-strong bg-raised px-3 py-2 font-mono text-[11px] text-ink-2 shadow-xl">
       <div className="text-ink">
-        update {d.update} · {formatDays(d.days)} to TCA
+        update {d.update} · {formatDays(d.days * 24)} to TCA
       </div>
       <div className="text-[10px] text-ink-3">{d.id}</div>
       <div className="mt-1">
@@ -169,14 +172,9 @@ function HistoryTooltip({ active, payload }: { active?: boolean; payload?: { pay
       <div>miss {formatDistance(d.miss)}</div>
       <div className="mt-1 flex items-center gap-1.5">
         {d.tier ? <span className="size-1.5 rounded-full" style={{ background: TIER_META[d.tier].color }} /> : <span className="hatch size-1.5 ring-1 ring-unknown/60" />}
-        rule tier {d.tier ?? 'unrated'} · {d.input ? 'model input' : 'inside cutoff'}
+        rule tier {d.tier ?? 'incomplete'} · {d.input ? 'model input' : 'after cutoff'}
       </div>
-      {d.forecastTier && (
-        <div className="text-ink-3">
-          forecast {d.forecastTier}
-          {d.carried ? ' (carried forward)' : ''}
-        </div>
-      )}
+      {d.flags.length > 0 && <div className="mt-1 text-elevated">{d.flags.join(', ')}</div>}
     </div>
   )
 }

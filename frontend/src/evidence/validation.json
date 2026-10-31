@@ -1,683 +1,627 @@
 {
-  "cohort_label": "validation partition, primary cohort (excludes final_is_early)",
-  "sample_count": 1786,
+  "status": "evaluated",
+  "provenance": {
+    "source": "ml/reports (persistence.json, upgrade_base.json, upgrade_base_mre.json, evaluation.json, failure_analysis.md, sensitivity.md, model_card.md)",
+    "commit": "475d4e2",
+    "branch": "fix/threshold-tie-break",
+    "bundled_on": "2026-10-31",
+    "generated_by": "python -m ml.train, ml.evaluate, ml.failures, ml.sensitivity, ml.model_card (Khaleil, SG-05/SG-06)",
+    "note": "Bundled copy of committed validation reports. Not served by a live /metrics endpoint (SG-03.4). Numbers are copied, not recomputed."
+  },
+  "dataset": {
+    "train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+    "split": "encounter-grouped, seed 42, 9553 train / 2389 validation encounters (SG-04.2)",
+    "cohort": "validation partition, primary cohort",
+    "cohort_definition": "usable encounters (at least one message >= 2 days before closest approach) whose final message is inside 2 days, so the label is not visible in the inputs (decision D4). 'All usable' adds the encounters whose final message is itself early."
+  },
   "model_version": "upgrade_base-202610310654",
-  "policy_version": "sg-01.2-sg-01.3",
-  "metrics": [
+  "model_sha256": "fed11fa765b15c4d1245618087aa6f4030eae9c2bdd95f81b1125318eea64c83",
+  "policy_version": "triage-policy-0.1 (prototype)",
+  "thresholds": {
+    "upgrade_p_critical": 0.12,
+    "min_upgrade_precision": 0.25,
+    "selection": "5-fold out-of-fold on training partition, primary cohort"
+  },
+  "models": [
     {
-      "name": "critical_recall",
-      "value": 0.873015873015873,
-      "state": "reported",
-      "reason": "shipped upgrade model; 126 Critical encounters"
+      "key": "persistence",
+      "label": "Persistence rule (SG-05.1)",
+      "role": "baseline",
+      "model_version": "persistence-202610310653",
+      "threshold": null,
+      "upgrades": 0,
+      "cohorts": {
+        "primary": {
+          "n": 1786,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                101,
+                23,
+                2
+              ],
+              [
+                27,
+                278,
+                34
+              ],
+              [
+                4,
+                49,
+                1268
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.7651515151515151,
+              "recall": 0.8015873015873016,
+              "support": 126,
+              "predicted": 132
+            },
+            "Elevated": {
+              "precision": 0.7942857142857143,
+              "recall": 0.8200589970501475,
+              "support": 339,
+              "predicted": 350
+            },
+            "Safe": {
+              "precision": 0.9723926380368099,
+              "recall": 0.9598788796366389,
+              "support": 1321,
+              "predicted": 1304
+            }
+          },
+          "critical_recall_95ci": [
+            0.7301587301587301,
+            0.8650793650793651
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 31,
+          "accuracy_not_headline": 0.9221724524076148
+        },
+        "all_usable": {
+          "n": 2389,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                142,
+                23,
+                2
+              ],
+              [
+                27,
+                371,
+                34
+              ],
+              [
+                4,
+                49,
+                1737
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.8208092485549133,
+              "recall": 0.8502994011976048,
+              "support": 167,
+              "predicted": 173
+            },
+            "Elevated": {
+              "precision": 0.837471783295711,
+              "recall": 0.8587962962962963,
+              "support": 432,
+              "predicted": 443
+            },
+            "Safe": {
+              "precision": 0.9796954314720813,
+              "recall": 0.970391061452514,
+              "support": 1790,
+              "predicted": 1773
+            }
+          },
+          "critical_recall_95ci": [
+            0.7964071856287425,
+            0.8982035928143712
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 31,
+          "accuracy_not_headline": 0.941816659690247
+        }
+      },
+      "ranking": null
     },
     {
-      "name": "critical_recall_persistence_baseline",
-      "value": 0.8015873015873016,
-      "state": "reported",
-      "reason": "persistence rule on the latest early message; same cohort"
+      "key": "upgrade_base",
+      "label": "Upgrade, base features (SG-05.2)",
+      "role": "shipped",
+      "model_version": "upgrade_base-202610310654",
+      "threshold": 0.12,
+      "upgrades": 30,
+      "cohorts": {
+        "primary": {
+          "n": 1786,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                110,
+                14,
+                2
+              ],
+              [
+                44,
+                261,
+                34
+              ],
+              [
+                8,
+                45,
+                1268
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.6790123456790124,
+              "recall": 0.873015873015873,
+              "support": 126,
+              "predicted": 162
+            },
+            "Elevated": {
+              "precision": 0.815625,
+              "recall": 0.7699115044247787,
+              "support": 339,
+              "predicted": 320
+            },
+            "Safe": {
+              "precision": 0.9723926380368099,
+              "recall": 0.9598788796366389,
+              "support": 1321,
+              "predicted": 1304
+            }
+          },
+          "critical_recall_95ci": [
+            0.8174603174603174,
+            0.9285714285714286
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 52,
+          "accuracy_not_headline": 0.9176931690929452
+        },
+        "all_usable": {
+          "n": 2389,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                151,
+                14,
+                2
+              ],
+              [
+                47,
+                351,
+                34
+              ],
+              [
+                8,
+                45,
+                1737
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.7330097087378641,
+              "recall": 0.9041916167664671,
+              "support": 167,
+              "predicted": 206
+            },
+            "Elevated": {
+              "precision": 0.8560975609756097,
+              "recall": 0.8125,
+              "support": 432,
+              "predicted": 410
+            },
+            "Safe": {
+              "precision": 0.9796954314720813,
+              "recall": 0.970391061452514,
+              "support": 1790,
+              "predicted": 1773
+            }
+          },
+          "critical_recall_95ci": [
+            0.8562874251497006,
+            0.9461077844311377
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 55,
+          "accuracy_not_headline": 0.9372122226873169
+        }
+      },
+      "ranking": {
+        "roc_auc": 0.9816265060240963,
+        "pr_auc": 0.8263186676618541
+      }
     },
     {
-      "name": "critical_precision",
-      "value": 0.6790123456790124,
-      "state": "reported",
-      "reason": "shipped upgrade model"
-    },
-    {
-      "name": "false_critical_alarms",
-      "value": 52,
-      "state": "reported",
-      "reason": "shipped upgrade model; 31 for persistence"
-    },
-    {
-      "name": "critical_predicted_safe",
-      "value": 2,
-      "state": "reported",
-      "reason": "neither model rescues these"
-    },
-    {
-      "name": "all_usable_sample_count",
-      "value": 2389,
-      "state": "reported",
-      "reason": "includes final_is_early encounters; reported separately"
-    },
-    {
-      "name": "test_final_tier_accuracy",
-      "value": null,
-      "state": "unavailable",
-      "reason": "Test messages include current risk and have no final outcomes."
-    },
-    {
-      "name": "ranking_coverage_top10_imminent",
-      "value": null,
-      "state": "not_evaluated",
-      "reason": "SG-03.3 queue-usefulness comparison has not been run."
+      "key": "upgrade_base_mre",
+      "label": "Upgrade + max_risk_estimate (SG-05.3)",
+      "role": "comparison",
+      "model_version": "upgrade_base_mre-202610310654",
+      "threshold": 0.42,
+      "upgrades": 8,
+      "cohorts": {
+        "primary": {
+          "n": 1786,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                105,
+                19,
+                2
+              ],
+              [
+                31,
+                274,
+                34
+              ],
+              [
+                4,
+                49,
+                1268
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.75,
+              "recall": 0.8333333333333334,
+              "support": 126,
+              "predicted": 140
+            },
+            "Elevated": {
+              "precision": 0.8011695906432749,
+              "recall": 0.8082595870206489,
+              "support": 339,
+              "predicted": 342
+            },
+            "Safe": {
+              "precision": 0.9723926380368099,
+              "recall": 0.9598788796366389,
+              "support": 1321,
+              "predicted": 1304
+            }
+          },
+          "critical_recall_95ci": [
+            0.7619047619047619,
+            0.8968253968253969
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 35,
+          "accuracy_not_headline": 0.9221724524076148
+        },
+        "all_usable": {
+          "n": 2389,
+          "confusion_matrix": {
+            "labels": [
+              "Critical",
+              "Elevated",
+              "Safe"
+            ],
+            "rows_actual_cols_predicted": [
+              [
+                146,
+                19,
+                2
+              ],
+              [
+                31,
+                367,
+                34
+              ],
+              [
+                4,
+                49,
+                1737
+              ]
+            ]
+          },
+          "per_tier": {
+            "Critical": {
+              "precision": 0.8066298342541437,
+              "recall": 0.874251497005988,
+              "support": 167,
+              "predicted": 181
+            },
+            "Elevated": {
+              "precision": 0.8436781609195402,
+              "recall": 0.8495370370370371,
+              "support": 432,
+              "predicted": 435
+            },
+            "Safe": {
+              "precision": 0.9796954314720813,
+              "recall": 0.970391061452514,
+              "support": 1790,
+              "predicted": 1773
+            }
+          },
+          "critical_recall_95ci": [
+            0.8203592814371258,
+            0.9221556886227545
+          ],
+          "critical_predicted_safe": 2,
+          "false_critical_alarms": 35,
+          "accuracy_not_headline": 0.941816659690247
+        }
+      },
+      "ranking": null
     }
   ],
-  "labels": [],
-  "evidence": {
-    "status": "evaluated",
-    "provenance": {
-      "source": "ml/reports (persistence.json, upgrade_base.json, upgrade_base_mre.json, evaluation.json, failure_analysis.md, sensitivity.md, model_card.md)",
-      "commit": "475d4e2",
-      "branch": "fix/threshold-tie-break",
-      "bundled_on": "2026-10-31",
-      "generated_by": "python -m ml.train, ml.evaluate, ml.failures, ml.sensitivity, ml.model_card (Khaleil, SG-05/SG-06)",
-      "note": "Bundled copy of committed validation reports. Not served by a live /metrics endpoint (SG-03.4). Numbers are copied, not recomputed."
+  "detection": [
+    {
+      "model": "Persistence",
+      "support": 126,
+      "detected": 101,
+      "missed": 25,
+      "missed_as_safe": 2,
+      "false_alarms": 31
     },
-    "dataset": {
-      "train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
-      "split": "encounter-grouped, seed 42, 9553 train / 2389 validation encounters (SG-04.2)",
-      "cohort": "validation partition, primary cohort",
-      "cohort_definition": "usable encounters (at least one message >= 2 days before closest approach) whose final message is inside 2 days, so the label is not visible in the inputs (decision D4). 'All usable' adds the encounters whose final message is itself early."
+    {
+      "model": "Upgrade (base), shipped",
+      "support": 126,
+      "detected": 110,
+      "missed": 16,
+      "missed_as_safe": 2,
+      "false_alarms": 52
+    }
+  ],
+  "probability_critical": {
+    "support": 3,
+    "rows": [
+      {
+        "model": "Persistence, Pc-critical subset",
+        "detected": 2,
+        "missed": 1,
+        "false_alarms": 0
+      },
+      {
+        "model": "Upgrade, Pc-critical subset",
+        "detected": 2,
+        "missed": 1,
+        "false_alarms": 0
+      }
+    ],
+    "note": "Probability-critical (final log10 Pc >= -4) encounters are rare in this cohort. Any recall on that subset is anecdotal."
+  },
+  "cross_validation": {
+    "folds": 5,
+    "n": 8892,
+    "support": {
+      "Critical": 590,
+      "Elevated": 1684,
+      "Safe": 6618
     },
+    "thresholds": [
+      0.05,
+      0.06,
+      0.09,
+      0.05,
+      0.07
+    ],
+    "pooled": {
+      "persistence": {
+        "critical_precision": 0.7913907284768212,
+        "critical_recall": 0.8101694915254237,
+        "critical_f1": 0.8006700167504187,
+        "critical_f2": 0.8063427800269906,
+        "macro_f1": 0.8629801459878345,
+        "false_critical": 126,
+        "critical_missed_as_safe": 13
+      },
+      "upgrade_base": {
+        "critical_precision": 0.6579925650557621,
+        "critical_recall": 0.9,
+        "critical_f1": 0.760200429491768,
+        "critical_f2": 0.8383328070729397,
+        "macro_f1": 0.8398668491623608,
+        "false_critical": 276,
+        "critical_missed_as_safe": 13
+      }
+    },
+    "per_fold": {
+      "persistence": {
+        "critical_recall": [
+          0.8521739130434782,
+          0.7983193277310925,
+          0.8034188034188035,
+          0.8,
+          0.7983870967741935
+        ]
+      },
+      "upgrade_base": {
+        "critical_recall": [
+          0.9130434782608695,
+          0.8823529411764706,
+          0.9145299145299145,
+          0.9130434782608695,
+          0.8790322580645161
+        ]
+      }
+    }
+  },
+  "ranking_coverage": null,
+  "sensitivity": {
     "model_version": "upgrade_base-202610310654",
-    "model_sha256": "fed11fa765b15c4d1245618087aa6f4030eae9c2bdd95f81b1125318eea64c83",
-    "thresholds": {
-      "upgrade_p_critical": 0.12,
-      "min_upgrade_precision": 0.25,
-      "selection": "5-fold out-of-fold on training partition, primary cohort"
-    },
-    "models": [
+    "tca_bands": [
       {
-        "key": "persistence",
-        "label": "Persistence rule (SG-05.1)",
-        "role": "baseline",
-        "model_version": "persistence-202610310653",
-        "threshold": null,
-        "upgrades": 0,
-        "cohorts": {
-          "primary": {
-            "n": 1786,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  101,
-                  23,
-                  2
-                ],
-                [
-                  27,
-                  278,
-                  34
-                ],
-                [
-                  4,
-                  49,
-                  1268
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.7651515151515151,
-                "recall": 0.8015873015873016,
-                "support": 126,
-                "predicted": 132
-              },
-              "Elevated": {
-                "precision": 0.7942857142857143,
-                "recall": 0.8200589970501475,
-                "support": 339,
-                "predicted": 350
-              },
-              "Safe": {
-                "precision": 0.9723926380368099,
-                "recall": 0.9598788796366389,
-                "support": 1321,
-                "predicted": 1304
-              }
-            },
-            "critical_recall_95ci": [
-              0.7301587301587301,
-              0.8650793650793651
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 31,
-            "accuracy_not_headline": 0.9221724524076148
-          },
-          "all_usable": {
-            "n": 2389,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  142,
-                  23,
-                  2
-                ],
-                [
-                  27,
-                  371,
-                  34
-                ],
-                [
-                  4,
-                  49,
-                  1737
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.8208092485549133,
-                "recall": 0.8502994011976048,
-                "support": 167,
-                "predicted": 173
-              },
-              "Elevated": {
-                "precision": 0.837471783295711,
-                "recall": 0.8587962962962963,
-                "support": 432,
-                "predicted": 443
-              },
-              "Safe": {
-                "precision": 0.9796954314720813,
-                "recall": 0.970391061452514,
-                "support": 1790,
-                "predicted": 1773
-              }
-            },
-            "critical_recall_95ci": [
-              0.7964071856287425,
-              0.8982035928143712
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 31,
-            "accuracy_not_headline": 0.941816659690247
-          }
-        },
-        "ranking": null
+        "condition": "2\u20132.5 days",
+        "encounters": 1599,
+        "critical": 120,
+        "rule_recall": 0.8,
+        "model_recall": 0.875,
+        "model_precision": 0.691,
+        "false_critical": 47
       },
       {
-        "key": "upgrade_base",
-        "label": "Upgrade, base features (SG-05.2)",
-        "role": "shipped",
-        "model_version": "upgrade_base-202610310654",
-        "threshold": 0.12,
-        "upgrades": 30,
-        "cohorts": {
-          "primary": {
-            "n": 1786,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  110,
-                  14,
-                  2
-                ],
-                [
-                  44,
-                  261,
-                  34
-                ],
-                [
-                  8,
-                  45,
-                  1268
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.6790123456790124,
-                "recall": 0.873015873015873,
-                "support": 126,
-                "predicted": 162
-              },
-              "Elevated": {
-                "precision": 0.815625,
-                "recall": 0.7699115044247787,
-                "support": 339,
-                "predicted": 320
-              },
-              "Safe": {
-                "precision": 0.9723926380368099,
-                "recall": 0.9598788796366389,
-                "support": 1321,
-                "predicted": 1304
-              }
-            },
-            "critical_recall_95ci": [
-              0.8174603174603174,
-              0.9285714285714286
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 52,
-            "accuracy_not_headline": 0.9176931690929452
-          },
-          "all_usable": {
-            "n": 2389,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  151,
-                  14,
-                  2
-                ],
-                [
-                  47,
-                  351,
-                  34
-                ],
-                [
-                  8,
-                  45,
-                  1737
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.7330097087378641,
-                "recall": 0.9041916167664671,
-                "support": 167,
-                "predicted": 206
-              },
-              "Elevated": {
-                "precision": 0.8560975609756097,
-                "recall": 0.8125,
-                "support": 432,
-                "predicted": 410
-              },
-              "Safe": {
-                "precision": 0.9796954314720813,
-                "recall": 0.970391061452514,
-                "support": 1790,
-                "predicted": 1773
-              }
-            },
-            "critical_recall_95ci": [
-              0.8562874251497006,
-              0.9461077844311377
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 55,
-            "accuracy_not_headline": 0.9372122226873169
-          }
-        },
-        "ranking": {
-          "roc_auc": 0.9816265060240963,
-          "pr_auc": 0.8263186676618541
-        }
+        "condition": "2.5\u20133 days",
+        "encounters": 94,
+        "critical": 5,
+        "rule_recall": 0.8,
+        "model_recall": 0.8,
+        "model_precision": 0.571,
+        "false_critical": 3
       },
       {
-        "key": "upgrade_base_mre",
-        "label": "Upgrade + max_risk_estimate (SG-05.3)",
-        "role": "comparison",
-        "model_version": "upgrade_base_mre-202610310654",
-        "threshold": 0.42,
-        "upgrades": 8,
-        "cohorts": {
-          "primary": {
-            "n": 1786,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  105,
-                  19,
-                  2
-                ],
-                [
-                  31,
-                  274,
-                  34
-                ],
-                [
-                  4,
-                  49,
-                  1268
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.75,
-                "recall": 0.8333333333333334,
-                "support": 126,
-                "predicted": 140
-              },
-              "Elevated": {
-                "precision": 0.8011695906432749,
-                "recall": 0.8082595870206489,
-                "support": 339,
-                "predicted": 342
-              },
-              "Safe": {
-                "precision": 0.9723926380368099,
-                "recall": 0.9598788796366389,
-                "support": 1321,
-                "predicted": 1304
-              }
-            },
-            "critical_recall_95ci": [
-              0.7619047619047619,
-              0.8968253968253969
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 35,
-            "accuracy_not_headline": 0.9221724524076148
-          },
-          "all_usable": {
-            "n": 2389,
-            "confusion_matrix": {
-              "labels": [
-                "Critical",
-                "Elevated",
-                "Safe"
-              ],
-              "rows_actual_cols_predicted": [
-                [
-                  146,
-                  19,
-                  2
-                ],
-                [
-                  31,
-                  367,
-                  34
-                ],
-                [
-                  4,
-                  49,
-                  1737
-                ]
-              ]
-            },
-            "per_tier": {
-              "Critical": {
-                "precision": 0.8066298342541437,
-                "recall": 0.874251497005988,
-                "support": 167,
-                "predicted": 181
-              },
-              "Elevated": {
-                "precision": 0.8436781609195402,
-                "recall": 0.8495370370370371,
-                "support": 432,
-                "predicted": 435
-              },
-              "Safe": {
-                "precision": 0.9796954314720813,
-                "recall": 0.970391061452514,
-                "support": 1790,
-                "predicted": 1773
-              }
-            },
-            "critical_recall_95ci": [
-              0.8203592814371258,
-              0.9221556886227545
-            ],
-            "critical_predicted_safe": 2,
-            "false_critical_alarms": 35,
-            "accuracy_not_headline": 0.941816659690247
-          }
-        },
-        "ranking": null
+        "condition": "3\u20134 days",
+        "encounters": 35,
+        "critical": 1,
+        "rule_recall": 1.0,
+        "model_recall": 1.0,
+        "model_precision": 0.5,
+        "false_critical": 1
+      },
+      {
+        "condition": "4\u20137.5 days",
+        "encounters": 58,
+        "critical": 0,
+        "rule_recall": null,
+        "model_recall": null,
+        "model_precision": 0.0,
+        "false_critical": 1
       }
     ],
-    "detection": [
+    "masked_inputs": [
       {
-        "model": "Persistence",
-        "support": 126,
-        "detected": 101,
-        "missed": 25,
-        "missed_as_safe": 2,
-        "false_alarms": 31
+        "condition": "No perturbation",
+        "encounters": 1786,
+        "critical": 126,
+        "rule_recall": 0.802,
+        "model_recall": 0.873,
+        "model_precision": 0.679,
+        "false_critical": 52,
+        "tiers_changed": 0
       },
       {
-        "model": "Upgrade (base), shipped",
-        "support": 126,
-        "detected": 110,
-        "missed": 16,
-        "missed_as_safe": 2,
-        "false_alarms": 52
+        "condition": "Space weather masked (F10, AP)",
+        "encounters": 1786,
+        "critical": 126,
+        "rule_recall": 0.802,
+        "model_recall": 0.817,
+        "model_precision": 0.752,
+        "false_critical": 34,
+        "tiers_changed": 27
+      },
+      {
+        "condition": "Sigmas masked (c_sigma_r, t_sigma_r)",
+        "encounters": 1786,
+        "critical": 126,
+        "rule_recall": 0.802,
+        "model_recall": 0.873,
+        "model_precision": 0.679,
+        "false_critical": 52,
+        "tiers_changed": 14
+      },
+      {
+        "condition": "Object type unknown",
+        "encounters": 1786,
+        "critical": 126,
+        "rule_recall": 0.802,
+        "model_recall": 0.881,
+        "model_precision": 0.677,
+        "false_critical": 53,
+        "tiers_changed": 2
+      },
+      {
+        "condition": "History removed (latest early message only)",
+        "encounters": 1786,
+        "critical": 126,
+        "rule_recall": 0.802,
+        "model_recall": 0.913,
+        "model_precision": 0.608,
+        "false_critical": 74,
+        "tiers_changed": 33
       }
     ],
-    "probability_critical": {
-      "support": 3,
-      "rows": [
-        {
-          "model": "Persistence, Pc-critical subset",
-          "detected": 2,
-          "missed": 1,
-          "false_alarms": 0
-        },
-        {
-          "model": "Upgrade, Pc-critical subset",
-          "detected": 2,
-          "missed": 1,
-          "false_alarms": 0
-        }
-      ],
-      "note": "Probability-critical (final log10 Pc >= -4) encounters are rare in this cohort. Any recall on that subset is anecdotal."
-    },
-    "cross_validation": {
-      "folds": 5,
-      "n": 8892,
-      "support": {
-        "Critical": 590,
-        "Elevated": 1684,
-        "Safe": 6618
+    "importance": [
+      {
+        "feature": "miss_distance",
+        "mean_drop_pr_auc": 0.5405,
+        "std": 0.0095
       },
-      "thresholds": [
-        0.05,
-        0.06,
-        0.09,
-        0.05,
-        0.07
-      ],
-      "pooled": {
-        "persistence": {
-          "critical_precision": 0.7913907284768212,
-          "critical_recall": 0.8101694915254237,
-          "critical_f1": 0.8006700167504187,
-          "critical_f2": 0.8063427800269906,
-          "macro_f1": 0.8629801459878345,
-          "false_critical": 126,
-          "critical_missed_as_safe": 13
-        },
-        "upgrade_base": {
-          "critical_precision": 0.6579925650557621,
-          "critical_recall": 0.9,
-          "critical_f1": 0.760200429491768,
-          "critical_f2": 0.8383328070729397,
-          "macro_f1": 0.8398668491623608,
-          "false_critical": 276,
-          "critical_missed_as_safe": 13
-        }
+      {
+        "feature": "c_sigma_r",
+        "mean_drop_pr_auc": 0.0121,
+        "std": 0.0085
       },
-      "per_fold": {
-        "persistence": {
-          "critical_recall": [
-            0.8521739130434782,
-            0.7983193277310925,
-            0.8034188034188035,
-            0.8,
-            0.7983870967741935
-          ]
-        },
-        "upgrade_base": {
-          "critical_recall": [
-            0.9130434782608695,
-            0.8823529411764706,
-            0.9145299145299145,
-            0.9130434782608695,
-            0.8790322580645161
-          ]
-        }
+      {
+        "feature": "t_sigma_r",
+        "mean_drop_pr_auc": 0.0062,
+        "std": 0.0027
+      },
+      {
+        "feature": "miss_over_sigma",
+        "mean_drop_pr_auc": 0.0036,
+        "std": 0.0042
+      },
+      {
+        "feature": "early_span_days",
+        "mean_drop_pr_auc": 0.0036,
+        "std": 0.0033
+      },
+      {
+        "feature": "max_risk",
+        "mean_drop_pr_auc": 0.0029,
+        "std": 0.001
+      },
+      {
+        "feature": "last_step_miss_change",
+        "mean_drop_pr_auc": 0.0022,
+        "std": 0.0052
+      },
+      {
+        "feature": "min_miss",
+        "mean_drop_pr_auc": 0.0006,
+        "std": 0.0045
       }
-    },
-    "ranking_coverage": null,
-    "sensitivity": {
-      "model_version": "upgrade_base-202610310654",
-      "tca_bands": [
-        {
-          "condition": "2\u20132.5 days",
-          "encounters": 1599,
-          "critical": 120,
-          "rule_recall": 0.8,
-          "model_recall": 0.875,
-          "model_precision": 0.691,
-          "false_critical": 47
-        },
-        {
-          "condition": "2.5\u20133 days",
-          "encounters": 94,
-          "critical": 5,
-          "rule_recall": 0.8,
-          "model_recall": 0.8,
-          "model_precision": 0.571,
-          "false_critical": 3
-        },
-        {
-          "condition": "3\u20134 days",
-          "encounters": 35,
-          "critical": 1,
-          "rule_recall": 1.0,
-          "model_recall": 1.0,
-          "model_precision": 0.5,
-          "false_critical": 1
-        },
-        {
-          "condition": "4\u20137.5 days",
-          "encounters": 58,
-          "critical": 0,
-          "rule_recall": null,
-          "model_recall": null,
-          "model_precision": 0.0,
-          "false_critical": 1
-        }
-      ],
-      "masked_inputs": [
-        {
-          "condition": "No perturbation",
-          "encounters": 1786,
-          "critical": 126,
-          "rule_recall": 0.802,
-          "model_recall": 0.873,
-          "model_precision": 0.679,
-          "false_critical": 52,
-          "tiers_changed": 0
-        },
-        {
-          "condition": "Space weather masked (F10, AP)",
-          "encounters": 1786,
-          "critical": 126,
-          "rule_recall": 0.802,
-          "model_recall": 0.817,
-          "model_precision": 0.752,
-          "false_critical": 34,
-          "tiers_changed": 27
-        },
-        {
-          "condition": "Sigmas masked (c_sigma_r, t_sigma_r)",
-          "encounters": 1786,
-          "critical": 126,
-          "rule_recall": 0.802,
-          "model_recall": 0.873,
-          "model_precision": 0.679,
-          "false_critical": 52,
-          "tiers_changed": 14
-        },
-        {
-          "condition": "Object type unknown",
-          "encounters": 1786,
-          "critical": 126,
-          "rule_recall": 0.802,
-          "model_recall": 0.881,
-          "model_precision": 0.677,
-          "false_critical": 53,
-          "tiers_changed": 2
-        },
-        {
-          "condition": "History removed (latest early message only)",
-          "encounters": 1786,
-          "critical": 126,
-          "rule_recall": 0.802,
-          "model_recall": 0.913,
-          "model_precision": 0.608,
-          "false_critical": 74,
-          "tiers_changed": 33
-        }
-      ],
-      "importance": [
-        {
-          "feature": "miss_distance",
-          "mean_drop_pr_auc": 0.5405,
-          "std": 0.0095
-        },
-        {
-          "feature": "c_sigma_r",
-          "mean_drop_pr_auc": 0.0121,
-          "std": 0.0085
-        },
-        {
-          "feature": "t_sigma_r",
-          "mean_drop_pr_auc": 0.0062,
-          "std": 0.0027
-        },
-        {
-          "feature": "miss_over_sigma",
-          "mean_drop_pr_auc": 0.0036,
-          "std": 0.0042
-        },
-        {
-          "feature": "early_span_days",
-          "mean_drop_pr_auc": 0.0036,
-          "std": 0.0033
-        },
-        {
-          "feature": "max_risk",
-          "mean_drop_pr_auc": 0.0029,
-          "std": 0.001
-        },
-        {
-          "feature": "last_step_miss_change",
-          "mean_drop_pr_auc": 0.0022,
-          "std": 0.0052
-        },
-        {
-          "feature": "min_miss",
-          "mean_drop_pr_auc": 0.0006,
-          "std": 0.0045
-        }
-      ]
-    },
-    "test": {
-      "state": "unavailable",
-      "reason": "test_data.csv has no outcomes; it is scored only for demo predictions (SG-06.3)."
-    },
-    "limitations": [
-      "Messages inside 2 days of closest approach are not model inputs, so late geometry changes are invisible to the forecast (see failure analysis, e.g. train:8732).",
-      "p_critical is a ranking score from class-weighted training, not a calibrated probability.",
-      "Almost all Critical labels come from miss distance; only 3 validation encounters are Critical by Pc.",
-      "The sigma value 6.378136e7 is treated as a placeholder; this is an inference, not confirmed.",
-      "Validation only: there are no test outcomes and no claim of operational reliability.",
-      "ROC-AUC 0.98 includes the easy encounters the rule already flags; within rule misses it is about 0.90."
     ]
-  }
+  },
+  "test": {
+    "state": "unavailable",
+    "reason": "test_data.csv has no outcomes; it is scored only for demo predictions (SG-06.3)."
+  },
+  "limitations": [
+    "Messages inside 2 days of closest approach are not model inputs, so late geometry changes are invisible to the forecast (see failure analysis, e.g. train:8732).",
+    "p_critical is a ranking score from class-weighted training, not a calibrated probability.",
+    "Almost all Critical labels come from miss distance; only 3 validation encounters are Critical by Pc.",
+    "The sigma value 6.378136e7 is treated as a placeholder; this is an inference, not confirmed.",
+    "Validation only: there are no test outcomes and no claim of operational reliability.",
+    "ROC-AUC 0.98 includes the easy encounters the rule already flags; within rule misses it is about 0.90."
+  ]
 }

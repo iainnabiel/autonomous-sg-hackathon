@@ -1,16 +1,11 @@
-import { Fragment, Suspense, lazy, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
-import { fetchQueue } from '../api/client'
-import { useResource } from '../api/useResource'
-import type { PriorityBand, Tier } from '../api/types'
-import { GlobeFallback } from '../components/globe/GlobeFallback'
-import { DemoTag, Footer } from '../components/layout/Page'
+import { ArrowUpRight } from 'lucide-react'
+import type { Priority, RiskTier } from '../api/types'
+import { Footer } from '../components/layout/Page'
+import { OrbitalOverview } from './Overview'
 import { PRIORITY_META, TIER_META } from '../lib/taxonomy'
-
-// three.js is only needed here; keep it out of the other pages' bundle.
-const Globe = lazy(() => import('../components/globe/Globe').then((m) => ({ default: m.Globe })))
 
 const ease = [0.22, 1, 0.36, 1] as const
 const rise = (delay = 0) => ({ initial: { opacity: 0, y: 14 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-80px' }, transition: { duration: 0.6, delay, ease } })
@@ -18,86 +13,13 @@ const rise = (delay = 0) => ({ initial: { opacity: 0, y: 14 }, whileInView: { op
 export function Home() {
   return (
     <>
-      <Hero />
+      <OrbitalOverview />
       <Problem />
       <Triage />
       <Flow />
       <Evidence />
       <Footer />
     </>
-  )
-}
-
-function Hero() {
-  const { state } = useResource(fetchQueue, 'queue')
-  const items = state.status === 'ready' ? state.data.items : null
-  const within24 = items?.filter((i) => i.time_to_tca_days >= 0 && i.time_to_tca_days <= 1).length
-  const immediate = items?.filter((i) => i.priority === 'Immediate').length
-  const incomplete = items?.filter((i) => i.priority === 'Incomplete').length
-
-  return (
-    <section className="relative overflow-hidden border-b border-line">
-      <div aria-hidden className="bg-grid pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto grid max-w-[1440px] grid-cols-1 items-center gap-10 px-5 pt-16 pb-10 md:px-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,6fr)] lg:pt-20 lg:pb-16">
-        <div className="relative z-10">
-          <motion.p {...rise(0)} className="eyebrow text-signal/80">
-            Conjunction triage · low Earth orbit
-          </motion.p>
-          <motion.h1 {...rise(0.05)} className="mt-5 text-[40px] leading-[0.98] font-medium tracking-[-0.03em] text-ink sm:text-[56px] lg:text-[68px]">
-            Thousands of warnings a day.
-            <br />
-            <span className="accent text-signal">Which one first?</span>
-          </motion.h1>
-          <motion.p {...rise(0.1)} className="mt-7 max-w-xl text-[17px] leading-relaxed text-ink-2">
-            Orbit reads conjunction messages, applies the risk rules, forecasts which encounters will end critical, and ranks every one by how dangerous it is <em className="accent not-italic text-ink">and</em> how soon it needs a human. Every decision comes with a receipt.
-          </motion.p>
-          <motion.div {...rise(0.15)} className="mt-9 flex flex-wrap items-center gap-3">
-            <Link to="/queue" className="group inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-void transition-colors hover:bg-signal">
-              Open the review queue
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-            <a href="#how" className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm text-ink-2 transition-colors hover:border-signal/40 hover:text-ink">
-              How it works
-            </a>
-          </motion.div>
-
-          <motion.dl {...rise(0.25)} className="mt-14 grid max-w-xl grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
-            <Stat label="Immediate" value={immediate} tone="var(--color-critical)" />
-            <Stat label="Within 24 h" value={within24} />
-            <Stat label="Incomplete" value={incomplete} tone="var(--color-unknown)" />
-          </motion.dl>
-          <p className="mt-2 flex items-center gap-2 font-mono text-[10px] text-ink-3">
-            Counts from the current queue. <DemoTag />
-          </p>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.2, ease }}
-          className="relative -mx-5 h-[420px] sm:h-[520px] md:-mx-8 lg:mx-0 lg:h-[640px]"
-        >
-          <Suspense fallback={<GlobeFallback className="absolute inset-0 lg:-right-24" />}>
-            <Globe className="absolute inset-0 lg:-right-24" />
-          </Suspense>
-          <div className="pointer-events-none absolute bottom-3 left-5 flex items-center gap-2 font-mono text-[10px] text-ink-3 md:left-8 lg:left-0">
-            <span className="size-1.5 rounded-full bg-critical" />
-            tracked pair approaching · schematic, not propagated orbits
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number | undefined; tone?: string }) {
-  return (
-    <div className="bg-panel/80 px-4 py-3">
-      <dt className="eyebrow">{label}</dt>
-      <dd className="tabular mt-1 text-2xl font-light text-ink" style={{ color: tone }}>
-        {value === undefined ? <span className="skeleton inline-block h-6 w-8 rounded align-middle" /> : value}
-      </dd>
-    </div>
   )
 }
 
@@ -117,7 +39,7 @@ function Section({ n, title, children, id }: { n: string; title: React.ReactNode
 
 function Problem() {
   return (
-    <Section n="01 — The problem" title={<>Every close approach gets a message. Almost none of them need a manoeuvre.</>}>
+    <Section n="01 — The problem" title={<>Thousands of warnings a day. Very few need action.</>}>
       <div className="grid gap-8 md:grid-cols-2">
         <p className="text-[15px] leading-relaxed text-ink-2">
           Low Earth orbit is crowded with satellites and debris. Operators receive thousands of conjunction messages a day, each warning that two objects might pass close. Screening every one by hand takes hours, and the dangerous few are easy to miss among the routine many.
@@ -140,37 +62,39 @@ function Problem() {
 
 /** Interactive triage matrix: risk tier × urgency → queue band. This is the policy itself, drawn. */
 function Triage() {
-  const tiers: (Tier | 'incomplete')[] = ['Critical', 'Elevated', 'Safe', 'incomplete']
+  const tiers: (RiskTier | 'incomplete')[] = ['critical', 'elevated', 'safe', 'incomplete']
   const cols = [
-    { key: 'soon', label: '≤ 1 day to closest approach (inclusive)' },
-    { key: 'later', label: '> 1 day' },
+    { key: 'soon', label: 'Within 24 hours' },
+    { key: 'later', label: 'More than 24 hours' },
   ] as const
-  const band = (tier: Tier | 'incomplete', col: 'soon' | 'later'): PriorityBand => {
-    if (tier === 'incomplete') return 'Incomplete'
-    if (tier === 'Critical') return col === 'soon' ? 'Immediate' : 'High'
-    if (tier === 'Elevated') return col === 'soon' ? 'High' : 'Scheduled'
-    return 'Routine'
+  const band = (tier: RiskTier | 'incomplete', col: 'soon' | 'later'): Priority => {
+    if (tier === 'incomplete') return 'incomplete'
+    if (tier === 'critical') return col === 'soon' ? 'immediate' : 'high'
+    if (tier === 'elevated') return col === 'soon' ? 'high' : 'scheduled'
+    return 'routine'
   }
-  const tone: Record<PriorityBand, string> = {
-    Immediate: 'bg-critical/15 text-critical border-critical/40',
-    High: 'bg-elevated/12 text-elevated border-elevated/40',
-    Scheduled: 'bg-signal/10 text-signal border-signal/35',
-    Routine: 'bg-raised text-ink-2 border-line-strong',
-    Incomplete: 'hatch text-ink-2 border-unknown/40',
+  const tone: Record<Priority, string> = {
+    immediate: 'bg-critical/15 text-critical border-critical/40',
+    high: 'bg-elevated/12 text-elevated border-elevated/40',
+    scheduled: 'bg-signal/10 text-signal border-signal/35',
+    routine: 'bg-raised text-ink-2 border-line-strong',
+    incomplete: 'hatch text-ink-2 border-unknown/40',
   }
-  const [hover, setHover] = useState<PriorityBand | null>(null)
+  const [hover, setHover] = useState<Priority | null>(null)
 
   return (
-    <Section n="02 — What Orbit adds" title={<>Risk says how dangerous. <span className="accent text-signal">Urgency</span> says how soon.</>} id="how">
+    <Section n="02 — How alerts are ranked" title={<>Priority combines risk level and time to closest approach.</>} id="how">
       <p className="max-w-2xl text-[15px] leading-relaxed text-ink-2">
-        The organisers’ thresholds on the supplied probability and miss distance give a risk tier. A forecast model can raise that tier when the early messages look like encounters that ended critical, and never lowers it. Orbit then combines the tier with time to closest approach to place each encounter in one of four review bands. Data quality is tracked separately: an assessment that could not be completed is never allowed to look safe.
+        Each alert gets a risk level from the collision probability and miss distance. A forecast model can raise the level to Critical when early warnings resemble past critical encounters; it never lowers it. Risk level and time to closest approach then set the review priority. If required data is missing, the alert is marked incomplete and is never shown as safe.
       </p>
 
       <div className="mt-10 min-w-0 overflow-x-auto">
         <div className="grid min-w-[560px] grid-cols-[150px_1fr_1fr] gap-2">
+          <div className="flex items-end px-1 pb-1 text-[12px] font-medium text-ink">Risk level</div>
+          <div className="col-span-2 border-b border-line px-1 pb-1 text-[12px] font-medium text-ink">Time to closest approach</div>
           <div />
           {cols.map((c) => (
-            <div key={c.key} className="eyebrow px-1 pb-1 text-ink-2">
+            <div key={c.key} className="px-1 pb-1 text-[12px] text-ink-2">
               {c.label}
             </div>
           ))}
@@ -203,7 +127,7 @@ function Triage() {
         </div>
       </div>
       <p className="mt-4 font-mono text-[11px] text-ink-3">
-        Tier thresholds: Critical if log₁₀ Pc ≥ −4 or miss &lt; 1 km · Elevated if log₁₀ Pc ≥ −6 or miss ≤ 5 km. Band uses the more severe of the current rule tier and the forecast final tier; Routine needs a valid Safe forecast. Policy triage-prototype-sg-01.4, a prototype.
+        Critical: collision probability ≥ 1 in 10,000 or miss distance under 1 km. Elevated: probability ≥ 1 in 1,000,000 or miss distance up to 5 km. Prototype policy triage-policy-0.1.
       </p>
     </Section>
   )
@@ -220,7 +144,7 @@ const STEPS = [
 
 function Flow() {
   return (
-    <Section n="03 — From message to decision" title={<>Six steps, each one <span className="accent text-signal">inspectable.</span></>}>
+    <Section n="03 — From warning to decision" title={<>Six steps, each one recorded.</>}>
       <ol className="relative grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         <motion.span
           aria-hidden
@@ -246,7 +170,7 @@ function Flow() {
 
 function Evidence() {
   return (
-    <Section n="04 — Evidence and limits" title={<>Judged on what it finds, and on what it misses.</>}>
+    <Section n="04 — Results and limitations" title={<>What the system catches, and what it misses.</>}>
       <div className="grid gap-8 md:grid-cols-2">
         <div>
           <p className="text-[15px] leading-relaxed text-ink-2">
