@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext'
 import { Nav } from './components/layout/Nav'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
+import { Signup } from './pages/Signup'
 import { Queue } from './pages/Queue'
 import { Encounter } from './pages/Encounter'
 import { Radar } from './pages/Radar'
@@ -37,6 +38,7 @@ export default function App() {
         <ScrollToTop />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/" element={<Protected><Home /></Protected>} />
           <Route path="/queue" element={<Protected><Queue /></Protected>} />
           <Route path="/encounter/:id" element={<Protected><Encounter /></Protected>} />
