@@ -1,0 +1,127 @@
+{
+  "task": "SG-05",
+  "model_version": "persistence-202610310609",
+  "config": {
+    "run": "persistence",
+    "model": "persistence",
+    "seed": 42
+  },
+  "data": {
+    "train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+    "train_encounters": 9553,
+    "validation_encounters": 2389
+  },
+  "validation": {
+    "primary_cohort": {
+      "n": 1786,
+      "confusion_matrix": {
+        "labels": [
+          "Critical",
+          "Elevated",
+          "Safe"
+        ],
+        "rows_actual_cols_predicted": [
+          [
+            101,
+            23,
+            2
+          ],
+          [
+            27,
+            278,
+            34
+          ],
+          [
+            4,
+            49,
+            1268
+          ]
+        ]
+      },
+      "per_tier": {
+        "Critical": {
+          "precision": 0.7651515151515151,
+          "recall": 0.8015873015873016,
+          "support": 126,
+          "predicted": 132
+        },
+        "Elevated": {
+          "precision": 0.7942857142857143,
+          "recall": 0.8200589970501475,
+          "support": 339,
+          "predicted": 350
+        },
+        "Safe": {
+          "precision": 0.9723926380368099,
+          "recall": 0.9598788796366389,
+          "support": 1321,
+          "predicted": 1304
+        }
+      },
+      "critical_recall_95ci": [
+        0.7301587301587301,
+        0.8650793650793651
+      ],
+      "critical_predicted_safe": 2,
+      "false_critical_alarms": 31,
+      "accuracy_not_headline": 0.9221724524076148
+    },
+    "all_usable": {
+      "n": 2389,
+      "confusion_matrix": {
+        "labels": [
+          "Critical",
+          "Elevated",
+          "Safe"
+        ],
+        "rows_actual_cols_predicted": [
+          [
+            142,
+            23,
+            2
+          ],
+          [
+            27,
+            371,
+            34
+          ],
+          [
+            4,
+            49,
+            1737
+          ]
+        ]
+      },
+      "per_tier": {
+        "Critical": {
+          "precision": 0.8208092485549133,
+          "recall": 0.8502994011976048,
+          "support": 167,
+          "predicted": 173
+        },
+        "Elevated": {
+          "precision": 0.837471783295711,
+          "recall": 0.8587962962962963,
+          "support": 432,
+          "predicted": 443
+        },
+        "Safe": {
+          "precision": 0.9796954314720813,
+          "recall": 0.970391061452514,
+          "support": 1790,
+          "predicted": 1773
+        }
+      },
+      "critical_recall_95ci": [
+        0.7964071856287425,
+        0.8982035928143712
+      ],
+      "critical_predicted_safe": 2,
+      "false_critical_alarms": 31,
+      "accuracy_not_headline": 0.941816659690247
+    },
+    "upgraded_encounters_primary": 0
+  },
+  "runtime_seconds": 0.6,
+  "not_evaluated": "test_data.csv has no outcomes; it is scored only for demo predictions (SG-06.3)."
+}
