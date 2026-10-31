@@ -43,9 +43,17 @@ The shapes follow the shipped model ([docs/ML_DECISIONS.md](../docs/ML_DECISIONS
 
 Review state (`POST /encounters/:id/review`, SG-02.8) is kept beside the assessment: it never changes the tier or band. In fixture mode it lives in memory and is lost on reload.
 
+## Sign-in and operators (demonstration only)
+
+`/login` is a demonstration sign-in: pick one of two accounts in `src/auth/operators.ts`, any passphrase is accepted, and the chosen operator id is kept in `sessionStorage`. There is no server, credential check or authorisation; the page says so. Every other route is wrapped in `Protected` (`App.tsx`) and redirects to `/login`, then back to the page that was asked for.
+
+Each operator owns a small hand-written constellation. Satellites map to fixture encounters through `encounter_ids`, and `CHASERS` names the tracked object on the other side of each encounter. None of this comes from the dataset; it exists so the overview, globe, briefing and ⌘K search can be personalised.
+
 ## Globe
 
-`src/components/globe/Globe.tsx` is an illustration: a dark Earth, a graticule, six inclined circular orbits with objects moving along them, and one pair on crossing orbits approaching a marked point. It is labelled "schematic, not propagated orbits" on screen. The fixture encounters are not plotted on it. If WebGL is unavailable, a static SVG version is shown instead.
+`src/components/globe/Globe.tsx` draws Earth as luminous land dots and coastlines (Natural Earth 110 m via `world-atlas`, prepared in `land.ts`) on a dark sphere with an atmospheric rim. Satellites from the operator list move on circular orbits at a compressed time scale — positions are illustrative, not propagated elements, and the page says so. The signed-in operator's assets are drawn in cyan with their orbit rings; objects with an immediate encounter pulse red, those needing attention are amber; everything else is grey context. Clicking a mark eases the camera toward it, draws a line to the object it may meet, and opens a side panel listing its open encounters. Labels are DOM elements positioned by a projector inside the scene. If WebGL is unavailable, a static SVG version is shown instead.
+
+The overview page also has a ⌘K / Ctrl-K command palette (`components/layout/CommandPalette.tsx`) over pages, the operator's assets and queue encounters.
 
 ## Layout
 

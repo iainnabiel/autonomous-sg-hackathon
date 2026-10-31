@@ -1,125 +1,274 @@
-import { Suspense, useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Line, OrbitControls } from '@react-three/drei'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
+import type { Satellite } from '../../auth/operators'
 import { GlobeBoundary, GlobeFallback, webglAvailable } from './GlobeFallback'
+import { getLand } from './land'
 
-// Schematic Earth with inclined orbits and tracked objects. This is an illustration of the
-// problem space, not propagated orbits — the fixture encounters are not plotted here.
+// Operational globe. Earth is drawn as luminous land dots and coastlines on a dark sphere.
+// Satellites move on circular orbits from the demo asset list (auth/operators.ts); the
+// motion is time-compressed and not propagated from real elements. The caller supplies
+// which objects belong to the signed-in operator and which carry open encounters.
 
-const EARTH_R = 1
-
-const ORBITS = [
-  { inclination: 53, raan: 0, radius: 1.14, period: 26, count: 7, phase: 0.0 },
-  { inclination: 97.6, raan: 60, radius: 1.17, period: 30, count: 5, phase: 0.3 },
-  { inclination: 86, raan: 130, radius: 1.21, period: 34, count: 4, phase: 0.6 },
-  { inclination: 44, raan: 200, radius: 1.12, period: 24, count: 6, phase: 0.15 },
-  { inclination: 70, raan: 275, radius: 1.26, period: 38, count: 3, phase: 0.8 },
-  { inclination: 98, raan: 320, radius: 1.19, period: 31, count: 4, phase: 0.45 },
-]
-
+const EARTH_KM = 6371
 const DEG = Math.PI / 180
-
-function orbitBasis(inclination: number, raan: number) {
-  const q = new THREE.Quaternion()
-  const e = new THREE.Euler(inclination * DEG, raan * DEG, 0, 'YXZ')
-  q.setFromEuler(e)
-  return q
+/** 1 real second = this many seconds of orbital motion. */
+const TIME_SCALE = 40
+/** Angular rate for a circular orbit, rad per (scaled) second. */
+function rate(altKm: number) {
+  const a = (EARTH_KM + altKm) * 1000
+  const mu = 3.986004418e14
+  return Math.sqrt(mu / (a * a * a))
+}
+function basis(incl: number, raan: number) {
+  return new THREE.Quaternion().setFromEuler(new THREE.Euler(incl * DEG, raan * DEG, 0, 'YXZ'))
+}
+function orbitRadius(altKm: number) {
+  return 1 + altKm / EARTH_KM
+}
+/** World position of a satellite at scaled time t. */
+export function satPosition(s: Satellite, t: number, out = new THREE.Vector3()) {
+  const r = orbitRadius(s.orbit.altitude_km)
+  const a = s.orbit.phase_deg * DEG + rate(s.orbit.altitude_km) * t * TIME_SCALE
+  out.set(r * Math.cos(a), 0, r * Math.sin(a)).applyQuaternion(basis(s.orbit.inclination_deg, s.orbit.raan_deg))
+  return out
 }
 
-function Earth() {
-  const material = useMemo(
+export type MarkerLevel = 'immediate' | 'attention' | null
+
+export interface GlobeProps {
+  satellites: Satellite[]
+  /** IDs belonging to the signed-in operator. */
+  ownIds: ReadonlySet<string>
+  /** Alert level per satellite id, from its open encounters. */
+  markers: ReadonlyMap<string, MarkerLevel>
+  /** Pairs to draw a line between, e.g. a protected asset and the object it may meet. */
+  links: readonly [string, string][]
+  selectedId: string | null
+  onSelect: (id: string | null) => void
+  className?: string
+  /** Lower detail for small embeds. */
+  compact?: boolean
+}
+
+export function Globe(props: GlobeProps) {
+  const ok = useMemo(webglAvailable, [])
+  const selLabel = useRef<HTMLDivElement>(null)
+  const hovLabel = useRef<HTMLDivElement>(null)
+  if (!ok) return <GlobeFallback className={props.className} />
+  return (
+    <div className={props.className} role="img" aria-label="Globe with operator satellites and tracked objects">
+      {/* Labels live in the DOM, outside the canvas; the Projector moves them each frame. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+        <div ref={selLabel} className="absolute top-0 left-0 hidden -translate-x-1/2 -translate-y-[calc(100%+14px)] whitespace-nowrap rounded-sm border border-line-strong bg-void/85 px-2 py-1 font-mono text-[10px] text-ink backdrop-blur-sm will-change-transform" />
+        <div ref={hovLabel} className="absolute top-0 left-0 hidden -translate-x-1/2 -translate-y-[calc(100%+14px)] whitespace-nowrap rounded-sm border border-line bg-void/75 px-2 py-1 font-mono text-[10px] text-ink-2 backdrop-blur-sm will-change-transform" />
+      </div>
+      <GlobeBoundary fallback={<GlobeFallback className="absolute inset-0" />}>
+        <Canvas
+          dpr={[1, 1.75]}
+          camera={{ position: [0, 0.55, 3.85], fov: 36, near: 0.05, far: 60 }}
+          gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+          resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
+          style={{ background: 'transparent', width: '100%', height: '100%', display: 'block' }}
+          onPointerMissed={() => props.onSelect(null)}
+        >
+          <Suspense fallback={null}>
+            <Scene {...props} selLabel={selLabel} hovLabel={hovLabel} />
+          </Suspense>
+        </Canvas>
+      </GlobeBoundary>
+    </div>
+  )
+}
+
+type LabelRef = React.RefObject<HTMLDivElement | null>
+
+function Scene({ satellites, ownIds, markers, links, selectedId, onSelect, compact, selLabel, hovLabel }: GlobeProps & { selLabel: LabelRef; hovLabel: LabelRef }) {
+  const controls = useRef<OrbitControlsImpl>(null)
+  const [hoverId, setHoverId] = useState<string | null>(null)
+  const byId = useMemo(() => new Map(satellites.map((s) => [s.id, s])), [satellites])
+  const positions = useRef(new Map<string, THREE.Vector3>())
+  satellites.forEach((s) => {
+    if (!positions.current.has(s.id)) positions.current.set(s.id, new THREE.Vector3())
+  })
+
+  // Advance every satellite once per frame; children read from the shared map.
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime()
+    for (const s of satellites) satPosition(s, t, positions.current.get(s.id))
+  })
+
+  return (
+    <>
+      <Earth compact={compact} />
+      <Graticule />
+      {satellites.map((s) => (
+        <OrbitRing key={`ring-${s.id}`} s={s} own={ownIds.has(s.id)} selected={s.id === selectedId} />
+      ))}
+      {satellites.map((s) => (
+        <SatelliteMark
+          key={s.id}
+          s={s}
+          own={ownIds.has(s.id)}
+          marker={markers.get(s.id) ?? null}
+          selected={s.id === selectedId}
+          position={positions.current.get(s.id)!}
+          onSelect={onSelect}
+          onHover={(h) => setHoverId(h ? s.id : null)}
+        />
+      ))}
+      <Links links={links} positions={positions.current} />
+      <Projector
+        positions={positions.current}
+        targets={[
+          { id: selectedId, el: selLabel, text: selectedId ? labelText(byId.get(selectedId), markers.get(selectedId) ?? null) : '' },
+          { id: hoverId && hoverId !== selectedId ? hoverId : null, el: hovLabel, text: hoverId ? labelText(byId.get(hoverId), markers.get(hoverId) ?? null) : '' },
+        ]}
+      />
+      <Stars />
+      <CameraRig controls={controls} target={selectedId ? positions.current.get(selectedId) ?? null : null} />
+      <OrbitControls
+        ref={controls}
+        enablePan={false}
+        enableZoom
+        minDistance={1.6}
+        maxDistance={6}
+        zoomSpeed={0.6}
+        rotateSpeed={0.45}
+        enableDamping
+        dampingFactor={0.08}
+        autoRotate={!selectedId}
+        autoRotateSpeed={0.25}
+      />
+    </>
+  )
+}
+
+/** Eases the camera to a vantage above a selected satellite, so it is never behind the planet; releases when unselected. */
+function CameraRig({ controls, target }: { controls: React.RefObject<OrbitControlsImpl | null>; target: THREE.Vector3 | null }) {
+  const { camera } = useThree()
+  const home = useMemo(() => new THREE.Vector3(0, 0, 0), [])
+  const tmp = useMemo(() => new THREE.Vector3(), [])
+  useFrame((_, dt) => {
+    const c = controls.current
+    if (!c) return
+    const k = 1 - Math.exp(-dt * 2.6)
+    if (target) {
+      // Look at a point between Earth centre and the satellite so the limb stays in frame,
+      // from a camera placed radially above the satellite at a fixed distance.
+      tmp.copy(target).multiplyScalar(0.72)
+      c.target.lerp(tmp, k)
+      tmp.copy(target).normalize().multiplyScalar(2.7)
+      camera.position.lerp(tmp, k)
+    } else {
+      c.target.lerp(home, k)
+      // Drift back out to a comfortable distance without snapping.
+      const d = camera.position.length()
+      if (d < 3.4) camera.position.multiplyScalar(1 + (3.6 / d - 1) * k * 0.5)
+    }
+    c.update()
+  })
+  return null
+}
+
+function Earth({ compact }: { compact?: boolean }) {
+  const land = useMemo(() => getLand(compact ? 7000 : 16000), [compact])
+  const coastPoints = useMemo(
+    () => land.coasts.map((c) => Array.from({ length: c.length / 3 }, (_, j) => [c[j * 3], c[j * 3 + 1], c[j * 3 + 2]] as [number, number, number])),
+    [land],
+  )
+  const base = useMemo(
     () =>
       new THREE.ShaderMaterial({
         uniforms: {
           uRim: { value: new THREE.Color('#6fe3ff') },
-          uBase: { value: new THREE.Color('#0b1424') },
-          uLight: { value: new THREE.Vector3(-0.6, 0.5, 0.8).normalize() },
+          uDeep: { value: new THREE.Color('#081222') },
+          uShallow: { value: new THREE.Color('#102540') },
+          uLight: { value: new THREE.Vector3(-0.5, 0.45, 0.75).normalize() },
         },
         vertexShader: /* glsl */ `
-          varying vec3 vNormal;
-          varying vec3 vView;
+          varying vec3 vN; varying vec3 vV;
           void main() {
-            vNormal = normalize(normalMatrix * normal);
+            vN = normalize(normalMatrix * normal);
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            vView = normalize(-mv.xyz);
+            vV = normalize(-mv.xyz);
             gl_Position = projectionMatrix * mv;
-          }
-        `,
+          }`,
         fragmentShader: /* glsl */ `
-          uniform vec3 uRim;
-          uniform vec3 uBase;
-          uniform vec3 uLight;
-          varying vec3 vNormal;
-          varying vec3 vView;
+          uniform vec3 uRim, uDeep, uShallow, uLight;
+          varying vec3 vN; varying vec3 vV;
           void main() {
-            float diffuse = clamp(dot(vNormal, uLight), 0.0, 1.0);
-            float fresnel = pow(1.0 - clamp(dot(vNormal, vView), 0.0, 1.0), 3.0);
-            vec3 color = uBase * (0.35 + diffuse * 0.9) + uRim * fresnel * 0.55;
-            gl_FragColor = vec4(color, 1.0);
-          }
-        `,
+            float d = clamp(dot(vN, uLight), 0.0, 1.0);
+            float f = pow(1.0 - clamp(dot(vN, vV), 0.0, 1.0), 3.5);
+            vec3 c = mix(uDeep, uShallow, d * 0.9) + uRim * f * 0.45;
+            gl_FragColor = vec4(c, 1.0);
+          }`,
       }),
     [],
   )
-
   return (
     <group>
-      <mesh material={material}>
-        <sphereGeometry args={[EARTH_R, 96, 96]} />
+      <mesh material={base}>
+        <sphereGeometry args={[1, 96, 96]} />
       </mesh>
-      {/* Atmosphere: back-facing shell with additive fresnel. */}
-      <mesh scale={1.035}>
-        <sphereGeometry args={[EARTH_R, 64, 64]} />
+      {/* Land as dots: the inverted, luminous treatment. */}
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[land.dots, 3]} />
+        </bufferGeometry>
+        <pointsMaterial size={compact ? 0.012 : 0.0105} color="#a9e4f2" transparent opacity={0.85} sizeAttenuation depthWrite={false} />
+      </points>
+      {coastPoints.map((pts, i) => (
+        <Line key={i} points={pts} color="#6fe3ff" transparent opacity={0.35} lineWidth={1} />
+      ))}
+      {/* Atmosphere: back-facing shell, additive fresnel. */}
+      <mesh scale={1.045}>
+        <sphereGeometry args={[1, 64, 64]} />
         <shaderMaterial
           side={THREE.BackSide}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
-          uniforms={{ uColor: { value: new THREE.Color('#6fe3ff') } }}
+          uniforms={{ uColor: { value: new THREE.Color('#5fd3f0') } }}
           vertexShader={/* glsl */ `
-            varying float vFres;
+            varying float vF;
             void main() {
               vec3 n = normalize(normalMatrix * normal);
               vec4 mv = modelViewMatrix * vec4(position, 1.0);
-              vFres = pow(clamp(dot(n, normalize(-mv.xyz)), 0.0, 1.0), 2.5);
+              vF = pow(clamp(dot(n, normalize(-mv.xyz)), 0.0, 1.0), 2.2);
               gl_Position = projectionMatrix * mv;
-            }
-          `}
+            }`}
           fragmentShader={/* glsl */ `
-            uniform vec3 uColor;
-            varying float vFres;
-            void main() { gl_FragColor = vec4(uColor, vFres * 0.35); }
-          `}
+            uniform vec3 uColor; varying float vF;
+            void main() { gl_FragColor = vec4(uColor, vF * 0.42); }`}
         />
       </mesh>
-      <Graticule />
     </group>
   )
 }
 
-/** Latitude / longitude lines, very faint. */
 function Graticule() {
   const lines = useMemo(() => {
-    const out: THREE.Vector3[][] = []
-    const r = EARTH_R * 1.002
+    const out: [number, number, number][][] = []
+    const r = 1.003
     for (let lat = -60; lat <= 60; lat += 30) {
-      const pts: THREE.Vector3[] = []
+      const pts: [number, number, number][] = []
       const rr = r * Math.cos(lat * DEG)
       const y = r * Math.sin(lat * DEG)
-      for (let i = 0; i <= 96; i++) {
-        const a = (i / 96) * Math.PI * 2
-        pts.push(new THREE.Vector3(rr * Math.cos(a), y, rr * Math.sin(a)))
+      for (let i = 0; i <= 90; i++) {
+        const a = (i / 90) * Math.PI * 2
+        pts.push([rr * Math.cos(a), y, rr * Math.sin(a)])
       }
       out.push(pts)
     }
     for (let lon = 0; lon < 180; lon += 30) {
-      const pts: THREE.Vector3[] = []
-      for (let i = 0; i <= 96; i++) {
-        const a = (i / 96) * Math.PI * 2
-        const v = new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), 0)
-        v.applyAxisAngle(new THREE.Vector3(0, 1, 0), lon * DEG)
-        pts.push(v)
+      const pts: [number, number, number][] = []
+      for (let i = 0; i <= 90; i++) {
+        const a = (i / 90) * Math.PI * 2
+        const v = new THREE.Vector3(r * Math.cos(a), r * Math.sin(a), 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), lon * DEG)
+        pts.push([v.x, v.y, v.z])
       }
       out.push(pts)
     }
@@ -128,141 +277,146 @@ function Graticule() {
   return (
     <group>
       {lines.map((pts, i) => (
-        <Line key={i} points={pts} color="#8fb3e6" transparent opacity={0.08} lineWidth={1} />
+        <Line key={i} points={pts} color="#8fb3e6" transparent opacity={0.07} lineWidth={1} />
       ))}
     </group>
   )
 }
 
-function Orbit({ inclination, raan, radius, period, count, phase }: (typeof ORBITS)[number]) {
-  const group = useRef<THREE.Group>(null)
-  const q = useMemo(() => orbitBasis(inclination, raan), [inclination, raan])
-  const ring = useMemo(() => {
-    const pts: THREE.Vector3[] = []
-    for (let i = 0; i <= 128; i++) {
+function OrbitRing({ s, own, selected }: { s: Satellite; own: boolean; selected: boolean }) {
+  const pts = useMemo(() => {
+    const r = orbitRadius(s.orbit.altitude_km)
+    const q = basis(s.orbit.inclination_deg, s.orbit.raan_deg)
+    return Array.from({ length: 129 }, (_, i) => {
       const a = (i / 128) * Math.PI * 2
-      pts.push(new THREE.Vector3(radius * Math.cos(a), 0, radius * Math.sin(a)))
-    }
-    return pts
-  }, [radius])
-  const sats = useMemo(() => Array.from({ length: count }, (_, i) => (i / count) * Math.PI * 2 + phase), [count, phase])
-  const refs = useRef<(THREE.Mesh | null)[]>([])
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime()
-    sats.forEach((offset, i) => {
-      const m = refs.current[i]
-      if (!m) return
-      const a = offset + (t / period) * Math.PI * 2
-      m.position.set(radius * Math.cos(a), 0, radius * Math.sin(a))
+      const v = new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a)).applyQuaternion(q)
+      return [v.x, v.y, v.z] as [number, number, number]
     })
-  })
-
-  return (
-    <group ref={group} quaternion={q}>
-      <Line points={ring} color="#6fe3ff" transparent opacity={0.26} lineWidth={1} />
-      {sats.map((_, i) => (
-        <mesh key={i} ref={(el) => (refs.current[i] = el)}>
-          <sphereGeometry args={[0.011, 10, 10]} />
-          <meshBasicMaterial color="#e9eef7" />
-        </mesh>
-      ))}
-    </group>
-  )
+  }, [s])
+  if (!own && !selected) return null
+  return <Line points={pts} color={selected ? '#ffffff' : '#6fe3ff'} transparent opacity={selected ? 0.55 : 0.22} lineWidth={selected ? 1.4 : 1} />
 }
 
-/** Two objects on crossing orbits approaching the same point, with a marker at the crossing. */
-function Conjunction() {
-  const a = useRef<THREE.Mesh>(null)
-  const b = useRef<THREE.Mesh>(null)
-  const ringRef = useRef<THREE.Mesh>(null)
-  const qa = useMemo(() => orbitBasis(53, 0), [])
-  const qb = useMemo(() => orbitBasis(97.6, 60), [])
-  const ra = 1.14
-  const rb = 1.17
-  // Crossing point: intersection of the two orbital planes, picked numerically once.
-  const crossing = useMemo(() => {
-    const na = new THREE.Vector3(0, 1, 0).applyQuaternion(qa)
-    const nb = new THREE.Vector3(0, 1, 0).applyQuaternion(qb)
-    return na.cross(nb).normalize()
-  }, [qa, qb])
-  const angleOn = (q: THREE.Quaternion) => {
-    const local = crossing.clone().applyQuaternion(q.clone().invert())
-    return Math.atan2(local.z, local.x)
-  }
-  const thetaA = useMemo(() => angleOn(qa), [qa]) // eslint-disable-line react-hooks/exhaustive-deps
-  const thetaB = useMemo(() => angleOn(qb), [qb]) // eslint-disable-line react-hooks/exhaustive-deps
-  const geom = useMemo(() => new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), [])
-  const linkObj = useMemo(() => new THREE.Line(geom, new THREE.LineBasicMaterial({ color: '#ff5f6d', transparent: true, opacity: 0.6 })), [geom])
-  // Ring lies tangent to the sphere at the crossing point.
-  const ringQ = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), crossing), [crossing])
+function SatelliteMark({ s, own, marker, selected, position, onSelect, onHover }: { s: Satellite; own: boolean; marker: MarkerLevel; selected: boolean; position: THREE.Vector3; onSelect: (id: string | null) => void; onHover: (h: boolean) => void }) {
+  const group = useRef<THREE.Group>(null)
+  const ring = useRef<THREE.Mesh>(null)
+  const [hover, setHover] = useState(false)
+  const { camera } = useThree()
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime()
-    // Both objects oscillate toward and away from the crossing over a 9 s cycle.
-    const s = (Math.sin((t / 9) * Math.PI * 2) + 1) / 2 // 0..1
-    const spread = 0.08 + s * 0.9
-    const pa = new THREE.Vector3(ra * Math.cos(thetaA - spread), 0, ra * Math.sin(thetaA - spread)).applyQuaternion(qa)
-    const pb = new THREE.Vector3(rb * Math.cos(thetaB + spread), 0, rb * Math.sin(thetaB + spread)).applyQuaternion(qb)
-    a.current?.position.copy(pa)
-    b.current?.position.copy(pb)
-    const pos = geom.attributes.position as THREE.BufferAttribute
-    pos.setXYZ(0, pa.x, pa.y, pa.z)
-    pos.setXYZ(1, pb.x, pb.y, pb.z)
-    pos.needsUpdate = true
-    if (ringRef.current) {
-      const close = 1 - s
-      ringRef.current.scale.setScalar(0.03 + close * 0.05)
-      ;(ringRef.current.material as THREE.MeshBasicMaterial).opacity = 0.25 + close * 0.6
+    if (group.current) group.current.position.copy(position)
+    if (ring.current) {
+      ring.current.lookAt(camera.position)
+      const t = clock.getElapsedTime()
+      const pulse = marker === 'immediate' ? 1 + 0.35 * Math.sin(t * 4) : 1
+      ring.current.scale.setScalar(pulse)
     }
   })
+  useEffect(() => {
+    document.body.style.cursor = hover ? 'pointer' : ''
+    onHover(hover)
+    return () => {
+      document.body.style.cursor = ''
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover])
 
-  const ringPos = crossing.clone().multiplyScalar((ra + rb) / 2)
+  const color = marker === 'immediate' ? '#ff5f6d' : marker === 'attention' ? '#f2b34a' : own ? '#6fe3ff' : '#8b97ab'
+  const size = own ? 0.016 : 0.011
+  const stop = (e: ThreeEvent<PointerEvent | MouseEvent>) => e.stopPropagation()
+
   return (
-    <group>
-      <mesh ref={a}>
-        <sphereGeometry args={[0.018, 12, 12]} />
-        <meshBasicMaterial color="#ff5f6d" />
+    <group ref={group}>
+      <mesh
+        onClick={(e) => {
+          stop(e)
+          onSelect(selected ? null : s.id)
+        }}
+        onPointerOver={(e) => {
+          stop(e)
+          setHover(true)
+        }}
+        onPointerOut={() => setHover(false)}
+      >
+        {/* Oversized invisible hit target so small marks are easy to click. */}
+        <sphereGeometry args={[0.05, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      <mesh ref={b}>
-        <sphereGeometry args={[0.014, 12, 12]} />
-        <meshBasicMaterial color="#ff5f6d" />
+      <mesh>
+        <sphereGeometry args={[size, 12, 12]} />
+        <meshBasicMaterial color={color} />
       </mesh>
-      <primitive object={linkObj} />
-      <mesh ref={ringRef} position={ringPos} quaternion={ringQ}>
-        <ringGeometry args={[0.8, 1, 48]} />
-        <meshBasicMaterial color="#ff5f6d" transparent side={THREE.DoubleSide} />
-      </mesh>
+      {(own || marker || selected) && (
+        <mesh ref={ring}>
+          <ringGeometry args={[size * 1.9, size * 2.3, 32]} />
+          <meshBasicMaterial color={color} transparent opacity={selected ? 0.95 : marker ? 0.8 : 0.45} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+      )}
     </group>
   )
 }
 
-function Scene() {
-  const root = useRef<THREE.Group>(null)
-  useFrame((_, dt) => {
-    if (root.current) root.current.rotation.y += dt * 0.04
+function labelText(s: Satellite | undefined, marker: MarkerLevel) {
+  if (!s) return ''
+  return marker === 'immediate' ? `${s.name} · immediate` : marker === 'attention' ? `${s.name} · review` : s.name
+}
+
+/** Projects world positions to the canvas and moves DOM labels without touching React state. */
+function Projector({ positions, targets }: { positions: Map<string, THREE.Vector3>; targets: { id: string | null; el: LabelRef; text: string }[] }) {
+  const { camera, size } = useThree()
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(() => {
+    for (const t of targets) {
+      const el = t.el.current
+      if (!el) continue
+      const p = t.id ? positions.get(t.id) : undefined
+      if (!p) {
+        el.style.display = 'none'
+        continue
+      }
+      v.copy(p).project(camera)
+      // Hide when behind the camera or behind the planet (planet radius 1 at origin).
+      const behindPlanet = p.dot(camera.position) < 0 && p.lengthSq() < camera.position.lengthSq()
+      const hidden = v.z > 1 || behindPlanet
+      el.style.display = hidden ? 'none' : 'block'
+      if (hidden) continue
+      if (el.textContent !== t.text) el.textContent = t.text
+      el.style.left = `${((v.x + 1) / 2) * size.width}px`
+      el.style.top = `${((1 - v.y) / 2) * size.height}px`
+    }
   })
-  return (
-    <>
-      <group ref={root} rotation={[0.25, 0, 0]}>
-        <Earth />
-        {ORBITS.map((o) => (
-          <Orbit key={`${o.inclination}-${o.raan}`} {...o} />
-        ))}
-        <Conjunction />
-      </group>
-      <Stars />
-      <OrbitControls enableZoom={false} enablePan={false} rotateSpeed={0.4} autoRotate={false} />
-    </>
-  )
+  return null
+}
+
+/** Straight lines between linked objects, refreshed every frame from the shared position map. */
+function Links({ links, positions }: { links: readonly [string, string][]; positions: Map<string, THREE.Vector3> }) {
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(Math.max(links.length, 1) * 6), 3))
+    return g
+  }, [links.length])
+  const obj = useMemo(() => new THREE.LineSegments(geom, new THREE.LineBasicMaterial({ color: '#ff5f6d', transparent: true, opacity: 0.55 })), [geom])
+  useFrame(() => {
+    const attr = geom.attributes.position as THREE.BufferAttribute
+    links.forEach(([a, b], i) => {
+      const pa = positions.get(a)
+      const pb = positions.get(b)
+      if (!pa || !pb) return
+      attr.setXYZ(i * 2, pa.x, pa.y, pa.z)
+      attr.setXYZ(i * 2 + 1, pb.x, pb.y, pb.z)
+    })
+    attr.needsUpdate = true
+    geom.setDrawRange(0, links.length * 2)
+  })
+  return <primitive object={obj} />
 }
 
 function Stars() {
   const positions = useMemo(() => {
-    const n = 700
+    const n = 900
     const arr = new Float32Array(n * 3)
     for (let i = 0; i < n; i++) {
-      const v = new THREE.Vector3().randomDirection().multiplyScalar(14 + Math.random() * 6)
+      const v = new THREE.Vector3().randomDirection().multiplyScalar(18 + Math.random() * 8)
       arr.set([v.x, v.y, v.z], i * 3)
     }
     return arr
@@ -272,29 +426,7 @@ function Stars() {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.035} color="#a7b2c6" transparent opacity={0.55} sizeAttenuation />
+      <pointsMaterial size={0.04} color="#a7b2c6" transparent opacity={0.5} sizeAttenuation />
     </points>
-  )
-}
-
-export function Globe({ className = '' }: { className?: string }) {
-  const ok = useMemo(webglAvailable, [])
-  if (!ok) return <GlobeFallback className={className} />
-  return (
-    <div className={className} aria-label="Schematic globe with orbits and tracked objects" role="img">
-      <GlobeBoundary fallback={<GlobeFallback className="absolute inset-0" />}>
-      <Canvas
-        dpr={[1, 1.75]}
-        camera={{ position: [0, 0.2, 3.35], fov: 38 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
-        style={{ background: 'transparent', width: '100%', height: '100%', display: 'block' }}
-      >
-        <Suspense fallback={null}>
-          <Scene />
-        </Suspense>
-      </Canvas>
-      </GlobeBoundary>
-    </div>
   )
 }
