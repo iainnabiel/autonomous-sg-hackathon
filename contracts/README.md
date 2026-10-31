@@ -86,6 +86,8 @@ Version `triage-prototype-sg-01.4`. This orders review attention. It is not a ce
 
 The prioritisation tier is the more severe of the current rule tier and `forecast_final_tier`. Neither stored tier is overwritten. `p_critical` and the model’s upgrade threshold are not inputs. Urgency uses the current observation’s TCA. Exactly 0 days and exactly 1 day are inside the one-day bands. Negative current TCA is omitted from the upcoming queue.
 
+A known Elevated tier with an unavailable forecast stays High at exactly 1 day and Scheduled just beyond 1 day. The reason `forecast_not_treated_as_safe` says the missing forecast was not treated as Safe. Known Critical evidence stays Immediate or High. Safe, or no current tier, with an unavailable forecast is Incomplete. Routine still requires current Safe and a valid Safe forecast. Missing risk and distance stay unrated; they are not turned into Elevated.
+
 | Current tier | Forecast tier | Current TCA | Priority | Why |
 | --- | --- | --- | --- | --- |
 | Critical | Safe | 0.5 day | Immediate | Current evidence wins; the forecast does not downgrade it; time is within 1 day |
@@ -98,6 +100,8 @@ The prioritisation tier is the more severe of the current rule tier and `forecas
 | Safe | unavailable or unable to assess | 0.2 day | Incomplete | A missing forecast is not treated as Safe and is not filed as Routine |
 | null | null | 0.2 day | Incomplete | No tier evidence |
 | Critical | unavailable | 0 days | Immediate | Known Critical evidence stays urgent |
+| Elevated | unavailable | 1 day | High | Known Elevated stays in its time band; the forecast is not treated as Safe |
+| Elevated | unavailable | just over 1 day | Scheduled | The same evidence outside the 1-day boundary |
 | Safe | Critical, carried forward from 3 days | 0.25 day | Immediate | Urgency uses 0.25 day; source observation and source TCA stay on the forecast |
 
 Carried-forward forecasts must name the same encounter as the row under review. Within each upcoming band, rows are ordered by current TCA, then source name, then numeric encounter id. The incomplete band stays separate from Routine.

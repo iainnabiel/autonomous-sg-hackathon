@@ -11,7 +11,7 @@ from contracts.forecast import ForecastStatus, available_forecast, carry_forward
 from contracts.ids import EncounterId, ObservationId
 from contracts.policy import TRIAGE_POLICY_VERSION
 from contracts.schemas import PriorityBand
-from contracts.tiers import Tier
+from contracts.tiers import Tier, current_rule_tier
 from contracts.triage import PriorityReason, PROTOTYPE_NOTICE, assign_review, sort_upcoming
 
 
@@ -112,6 +112,42 @@ class PolicyBoundaryTest(unittest.TestCase):
         self.assertEqual(forecast_only.priority, PriorityBand.IMMEDIATE)
         self.assertIn(PriorityReason.FORECAST, forecast_only.reasons)
         self.assertIsNone(forecast_only.current_rule_tier)
+
+    def test_known_elevated_keeps_its_band_when_the_forecast_is_unavailable(self) -> None:
+        at_one = _review(current=Tier.ELEVATED, tca=1.0, forecast=unavailable_forecast())
+        after_one = _review(
+            current=Tier.ELEVATED,
+            tca=math.nextafter(1.0, 2.0),
+            forecast=unavailable_forecast(),
+        )
+        unable = _review(current=Tier.ELEVATED, tca=1.0, forecast=unable_to_assess())
+        self.assertIsNone(current_rule_tier(None, None))
+        self.assertEqual(at_one.current_rule_tier, Tier.ELEVATED)
+        self.assertIsNone(at_one.forecast_final_tier)
+        self.assertEqual(at_one.forecast_status, ForecastStatus.UNAVAILABLE)
+        self.assertNotEqual(at_one.prioritisation_tier, Tier.SAFE)
+        self.assertEqual(at_one.priority, PriorityBand.HIGH)
+        self.assertIn(PriorityReason.FORECAST_NOT_TREATED_AS_SAFE, at_one.reasons)
+        self.assertIn(PriorityReason.TIME_WITHIN_ONE_DAY, at_one.reasons)
+        self.assertEqual(after_one.priority, PriorityBand.SCHEDULED)
+        self.assertEqual(after_one.current_rule_tier, Tier.ELEVATED)
+        self.assertIsNone(after_one.forecast_final_tier)
+        self.assertNotIn(PriorityReason.TIME_WITHIN_ONE_DAY, after_one.reasons)
+        self.assertIn(PriorityReason.FORECAST_NOT_TREATED_AS_SAFE, after_one.reasons)
+        self.assertEqual(unable.priority, PriorityBand.HIGH)
+        self.assertIn(PriorityReason.FORECAST_NOT_TREATED_AS_SAFE, unable.reasons)
+        absent = _review(current=None, tca=1.0, forecast=unavailable_forecast())
+        safe = _review(current=Tier.SAFE, tca=1.0, forecast=unavailable_forecast())
+        self.assertEqual(absent.priority, PriorityBand.INCOMPLETE)
+        self.assertIsNone(absent.current_rule_tier)
+        self.assertEqual(safe.current_rule_tier, Tier.SAFE)
+        self.assertIsNone(safe.forecast_final_tier)
+        self.assertEqual(safe.priority, PriorityBand.INCOMPLETE)
+        bands = sort_upcoming([at_one, after_one, absent, safe])
+        self.assertEqual([item.encounter_id.event_id for item in bands[PriorityBand.HIGH]], [7])
+        self.assertEqual(len(bands[PriorityBand.SCHEDULED]), 1)
+        self.assertEqual(len(bands[PriorityBand.INCOMPLETE]), 2)
+        self.assertEqual(bands[PriorityBand.ROUTINE], ())
 
     def test_missing_forecast_does_not_become_safe_or_routine(self) -> None:
         unable = _review(current=Tier.SAFE, tca=0.2, forecast=unable_to_assess())
