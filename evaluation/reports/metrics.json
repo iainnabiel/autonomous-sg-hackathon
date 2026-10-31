@@ -2,11 +2,11 @@
   "status": "evaluated",
   "provenance": {
     "source": "evaluation (SG-03)",
-    "commit": "46595004f1a11123d65b5ecd6a6a1bda5a06c38d",
-    "branch": "feature/sg-03-3-triage-ranking",
+    "commit": "5fe7fa9020d2a46d59aaade32f13d18540fff6b6",
+    "branch": "feature/sg-03-4-metrics-payload",
     "bundled_on": null,
     "generated_by": "python -m evaluation report",
-    "note": "Generated 2026-10-31T07:57Z from local ML validation predictions. Nothing was fitted or tuned by SG-03."
+    "note": "Generated 2026-10-31T08:04Z from ML run upgrade_base-202610310747 (see sg03.artifacts for the exact files). Nothing was fitted or tuned by SG-03."
   },
   "dataset": {
     "train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
@@ -2504,8 +2504,8 @@
     "The upgrade threshold was chosen by ML (D7) on 5-fold out-of-fold predictions from the training partition, then applied to a model refitted on the whole partition. The 25% upgrade-precision budget therefore does not transfer exactly, and it was checked on the same scores it was tuned on.",
     "The D7 budget is a trade-off constraint. Persistence has one operating point, so the two models are not compared at an equal false-alarm level.",
     "p_critical is an uncalibrated, class-weighted score for 'final tier is Critical'. It is not a collision probability (Pc) and is shown only as ranking quality.",
-    "Critical support is small (126 primary validation encounters), so intervals are wide.",
-    "Encounters with no eligible early message are unable to assess. They are excluded from tier metrics and counted separately, never as Safe."
+    "Encounters with no eligible early message are unable to assess. They are excluded from tier metrics and counted separately, never as Safe.",
+    "Critical support is small (126 primary validation encounters), so intervals are wide."
   ],
   "sg03": {
     "schema_version": "sg-03.v1",
@@ -2514,14 +2514,57 @@
       "train_event_labels.csv": "276b32bba4cc28feab89e7c1074795ba86895e19274d6fafb50dd20f2419a040",
       "train_validation.csv": "b89da01f01864b9465f11e8240474bac95a4aa1ec7fa45630a2e68b7fc2ec00e"
     },
+    "artifacts": {
+      "persistence": {
+        "model_version": "persistence-202610310747",
+        "report_json": "/Users/iainnabiel/Desktop/autonomous-sg-sg-03-ml-run/ml/reports/persistence.json",
+        "report_json_sha256": "aaa1f80321b8b0567d90b1eb8c4093f01b5a4b8776161cc175328a2cad1c3c06",
+        "predictions_csv_sha256": "8342895d009acf3a8ea91c3268998cd25eda761059e8cd3a706330293bfcee2f",
+        "ml_train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+        "repository_report_model_version": "persistence-202610310653"
+      },
+      "upgrade_base": {
+        "model_version": "upgrade_base-202610310747",
+        "report_json": "/Users/iainnabiel/Desktop/autonomous-sg-sg-03-ml-run/ml/reports/upgrade_base.json",
+        "report_json_sha256": "dbcc5d11c27d106b6435a42cb7c15c8d3338fbf702ceb75eb4d8bc7c56618af4",
+        "predictions_csv_sha256": "1e88e721e3217b25a77bb7536062dcff7d4e70f9250ca223d347a1cd0ecf1e44",
+        "ml_train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+        "repository_report_model_version": "upgrade_base-202610310654",
+        "model_bundle": "/Users/iainnabiel/Desktop/autonomous-sg-sg-03-ml-run/ml/artifacts/upgrade_base/model.joblib",
+        "model_bundle_sha256": "317f021c03c42dfb2ad1cf7ca48fa75146a991b7b813050cb7d2a7815573e1c8",
+        "bundle_model_version": "upgrade_base-202610310747",
+        "bundle_version_check": "read from bundle"
+      }
+    },
     "notes": [
-      "train_event_labels.csv bytes differ from split_meta.json (for example a local export of the organiser sheet). Its content is cross-checked row by row against raw messages and the split."
+      "train_event_labels.csv bytes differ from split_meta.json (for example a local export of the organiser sheet). Its content is cross-checked row by row against raw messages and the split.",
+      "persistence: this report scores run persistence-202610310747; the repository's committed ml/reports/persistence.json is run persistence-202610310653. Matching metric values do not make the two model artifacts interchangeable.",
+      "upgrade_base: this report scores run upgrade_base-202610310747; the repository's committed ml/reports/upgrade_base.json is run upgrade_base-202610310654. Matching metric values do not make the two model artifacts interchangeable."
     ],
     "cross_checks": {
-      "organiser_labels_vs_raw_messages": "passed",
-      "split_vs_raw_final_is_early": "passed",
-      "ml_prediction_labels_vs_sg03_labels": "passed",
-      "forecast_source_is_latest_raw_eligible_message": "passed"
+      "note": "Each check stops the report on any disagreement, so a written report means every check passed. Counts are the records checked.",
+      "organiser_labels_vs_raw_messages": {
+        "result": "passed",
+        "encounters": 13154
+      },
+      "split_vs_raw_final_is_early": {
+        "result": "passed",
+        "encounters": 11942
+      },
+      "ml_prediction_labels_vs_sg03_labels": {
+        "result": "passed",
+        "rows": {
+          "persistence": 2389,
+          "upgrade_base": 2389
+        }
+      },
+      "forecast_source_is_latest_raw_eligible_message": {
+        "result": "passed",
+        "predictions": {
+          "persistence": 2389,
+          "upgrade_base": 2389
+        }
+      }
     },
     "cohorts": {
       "all_usable": {
