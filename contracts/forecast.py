@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -25,6 +26,7 @@ class ReasonCode(str, Enum):
     FORECAST_CARRIED_FORWARD = "forecast_carried_forward"
     CURRENT_CRITICAL_TRIGGER = "current_critical_trigger"
     TEST_FINAL_OUTCOME_ABSENT = "test_final_outcome_absent"
+    MODEL_UPGRADE_TO_CRITICAL = "model_upgrade_to_critical"
 
 
 @dataclass(frozen=True)
@@ -52,7 +54,7 @@ class Forecast:
 def _finite(value: float | None, name: str) -> None:
     if value is None:
         return
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != value:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ContractError(f"{name} must be a finite number or null")
 
 
@@ -60,6 +62,8 @@ def _validate_forecast(forecast: Forecast) -> None:
     _finite(forecast.p_critical, "p_critical")
     _finite(forecast.predicted_final_log10_pc, "predicted_final_log10_pc")
     _finite(forecast.predicted_final_pc, "predicted_final_pc")
+    if forecast.p_critical is not None and not 0.0 <= forecast.p_critical <= 1.0:
+        raise ContractError("p_critical must be between 0 and 1")
     if forecast.p_critical is not None and (
         forecast.predicted_final_log10_pc == forecast.p_critical
         or forecast.predicted_final_pc == forecast.p_critical

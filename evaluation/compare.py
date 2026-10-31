@@ -165,6 +165,10 @@ def compare(rows: Sequence[PairedRow], *, min_upgrade_precision: float) -> dict:
     }
 
 
+def _rate(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.1%}"
+
+
 def headline(result: dict, cohort_label: str) -> str:
     b, m = result["baseline"], result["model"]
     precision = result["upgrade_precision"]
@@ -176,7 +180,7 @@ def headline(result: dict, cohort_label: str) -> str:
         f"{result['critical_support']} Critical encounters vs {b['critical_caught']} for persistence "
         f"(+{result['extra_critical_caught']}{ci_text}). False Critical alarms rise from "
         f"{b['false_critical_alarms']} to {m['false_critical_alarms']} (false-positive rate "
-        f"{b['critical_false_positive_rate']:.1%} to {m['critical_false_positive_rate']:.1%} of "
+        f"{_rate(b['critical_false_positive_rate'])} to {_rate(m['critical_false_positive_rate'])} of "
         f"{result['non_critical']} non-Critical encounters); {result['upgrades']} upgrades, {precision_text} "
         f"(D7 budget {result['d7_constraint']['min_upgrade_precision']:.0%} on training folds). "
         "This is a trade-off, not an equal-false-alarm comparison."

@@ -52,8 +52,15 @@ def _queue_order(rows: Sequence[JoinedRow]) -> tuple[list[JoinedRow], dict[str, 
     return ordered, {band.value: len(members) for band, members in bands.items()}
 
 
+def _missing_last(value: float | None) -> tuple[bool, float]:
+    missing = value is None or math.isnan(value)
+    return (missing, 0.0 if missing else value)
+
+
 def _sorted_by(rows: Sequence[JoinedRow], key) -> list[JoinedRow]:
-    return sorted(rows, key=lambda row: (key(row), encounter_order(row.encounter_id)))
+    """Missing supplied values sort last so they never reach the top of a baseline."""
+
+    return sorted(rows, key=lambda row: (_missing_last(key(row)), encounter_order(row.encounter_id)))
 
 
 def _coverage(ordered: Sequence[JoinedRow], positive) -> dict:
@@ -94,7 +101,7 @@ def rank_and_cover(
     rankings = [
         ("proposed_queue", "Proposed queue (SG-01.4 policy, model forecast)", proposed, proposed_bands),
         ("persistence_queue", "Same policy, persistence forecast", persistence, persistence_bands),
-        ("risk_first", "Supplied log10 Pc, highest first", _sorted_by(model_rows, lambda r: -message(r).risk_log10_pc), None),
+        ("risk_first", "Supplied log10 Pc, highest first", _sorted_by(model_rows, lambda r: None if message(r).risk_log10_pc is None else -message(r).risk_log10_pc), None),
         ("distance_first", "Supplied miss distance, smallest first", _sorted_by(model_rows, lambda r: message(r).miss_distance_m), None),
         ("tca_first", "Time to closest approach, soonest first", _sorted_by(model_rows, lambda r: message(r).time_to_tca_days), None),
     ]

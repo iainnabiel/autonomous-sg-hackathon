@@ -1,6 +1,8 @@
 # ml/ — Data, model, limitations
 
-Owner: Khaleil. Covers SG-04, SG-05, and SG-06 in the task plan.
+**Owner:** Khaleil
+
+Covers SG-04, SG-05, and SG-06 in the task plan.
 
 **Task:** predict each encounter's final tier (Safe / Elevated / Critical) using only messages sent at least 2 days before closest approach. Approach, metric, and cohort decisions are in [docs/ML_DECISIONS.md](../docs/ML_DECISIONS.md).
 
@@ -33,19 +35,48 @@ Each stage is one subtask, built on its own branch and PR. Stages marked *stub* 
 
 | Order | Task | Module | Command | Output |
 | --- | --- | --- | --- | --- |
-| 1 | SG-04.1 Profile data quality | `profile_data.py` (stub) | `python -m ml.profile_data` | `reports/data_profile.md` |
-| 2 | SG-04.2 Encounter-grouped split | `split.py` (stub) | `python -m ml.split` | `splits/train_validation.csv`, `splits/split_meta.json` |
-| 3 | SG-04.3 Encounter features | `features.py` (stub) | used by stages 4 to 7 | — |
-| 4 | SG-05.1 Persistence baseline | `train.py` (stub) | `python -m ml.train --model persistence` | `artifacts/<run>/`, `reports/<run>.json` |
-| 5 | SG-05.2 Critical-upgrade model | `train.py` (stub) | `python -m ml.train --model upgrade --features base` | as above |
-| 6 | SG-05.3 With `max_risk_estimate` | `train.py` (stub) | `python -m ml.train --model upgrade --features base_mre` | as above |
-| 7 | SG-05.4 Package inference | `inference.py` (stub) | `from ml.inference import predict_encounters` | model bundle for the backend |
-| 8 | SG-06.1 Select model on validation | to add | — | `reports/model_selection.md` |
-| 9 | SG-06.2 Missed Critical cases | to add | — | `reports/failure_analysis.md` |
-| 10 | SG-06.3 Freeze and score test | to add | — | test predictions (no outcomes to score against) |
-| 11 | SG-06.4 Held-out demo histories | to add | — | demo encounter export |
-| 12 | SG-06.5 *(Next)* Quality sensitivity | to add | — | `reports/sensitivity.md` |
+| 1 | SG-04.1 Profile data quality | `profile_data.py` | `python -m ml.profile_data` | `reports/data_profile.md` |
+| 2 | SG-04.2 Encounter-grouped split | `split.py` | `python -m ml.split` | `splits/train_validation.csv`, `splits/split_meta.json` |
+| 3 | SG-04.3 Encounter features | `features.py` | used by stages 4 to 7 | — |
+| 4 | SG-05.1 Persistence baseline | `train.py` | `python -m ml.train --model persistence` | `artifacts/<run>/`, `reports/<run>.json` |
+| 5 | SG-05.2 Critical-upgrade model | `train.py` | `python -m ml.train --model upgrade --features base` | as above |
+| 6 | SG-05.3 With `max_risk_estimate` | `train.py` | `python -m ml.train --model upgrade --features base_mre` | as above |
+| 7 | SG-05.4 Package inference | `inference.py` | `python -m ml.inference --source test` | `artifacts/predictions_test.csv`; `predict_encounters()` for the backend |
+| 8 | SG-06.1 Select model on validation | `model_card.py` | `python -m ml.model_card` | `reports/model_card.md` |
+| 9 | SG-06.2 Missed Critical cases | `failures.py` | `python -m ml.failures` | `reports/failure_analysis.md` |
+| 10 | SG-06.3 Freeze and score test | `inference.py`, `model_card.py` | `python -m ml.inference --source test` | `artifacts/predictions_test.csv`; frozen version in `reports/model_card.md` |
+| 11 | SG-06.4 Held-out demo histories | `model_card.py` | `python -m ml.model_card` | demo IDs in `reports/model_card.md`; `artifacts/demo_histories.csv` |
+| 12 | SG-06.5 *(Next)* Quality sensitivity | `sensitivity.py` | `python -m ml.sensitivity` | `reports/sensitivity.md` |
 | 13 | SG-06.6 *(Stretch)* Bounded sensitivity experiment | to add | — | experiment spec |
+
+## Reproduce everything
+
+```bash
+P=.venv/bin/python
+$P -m ml.profile_data && $P -m ml.split
+$P -m ml.train --model persistence
+$P -m ml.train --model upgrade --features base
+$P -m ml.train --model upgrade --features base_mre
+$P -m ml.inference --source test && $P -m ml.failures && $P -m ml.model_card
+$P -m ml.evaluate                                  # full score panel + 5-fold cross-validation (~1 min)
+$P -m ml.sensitivity                               # SG-06.5 TCA bands, masked inputs, importance
+```
+
+## Demo API for the dashboard (interim)
+
+`python -m ml.demo_api` serves real encounters and the frozen model in the dashboard's provisional API shape, so the dashboard shows real data instead of fixtures until the SG-02 backend lands.
+
+```bash
+.venv/bin/python -m ml.demo_api --metrics frontend/src/evidence/validation.json   # port 8000, held-out validation
+# in another terminal, from frontend/:
+VITE_API_URL=http://localhost:8000 npm run dev                                      # http://localhost:5173
+```
+
+- `--cohort validation` (default): the 2,389 held-out validation encounters, never used to fit the model. Histories include messages inside 2 days, so the current observation is each encounter's last message (historical replay).
+- `--cohort test`: the 2,167 `test_data.csv` encounters. Every message is at least 2 days out, so nothing is inside 24 hours.
+- `/metrics` serves the JSON given with `--metrics` (the dashboard's bundled copy of `ml/reports`); without it the dashboard shows "not evaluated".
+- The queue applies the upgrade to each encounter's current rule tier (dashboard semantics), so its upgrade count differs from the evaluated model's. Evaluated numbers are in `ml/reports`.
+- Review state is in memory and lost on restart. Standard-library server; not for production.
 
 ## Identifiers
 
