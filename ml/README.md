@@ -44,7 +44,7 @@ Each stage is one subtask, built on its own branch and PR. Stages marked *stub* 
 | 9 | SG-06.2 Missed Critical cases | `failures.py` | `python -m ml.failures` | `reports/failure_analysis.md` |
 | 10 | SG-06.3 Freeze and score test | `inference.py`, `model_card.py` | `python -m ml.inference --source test` | `artifacts/predictions_test.csv`; frozen version in `reports/model_card.md` |
 | 11 | SG-06.4 Held-out demo histories | `model_card.py` | `python -m ml.model_card` | demo IDs in `reports/model_card.md`; `artifacts/demo_histories.csv` |
-| 12 | SG-06.5 *(Next)* Quality sensitivity | to add | — | `reports/sensitivity.md` |
+| 12 | SG-06.5 *(Next)* Quality sensitivity | `sensitivity.py` | `python -m ml.sensitivity` | `reports/sensitivity.md` |
 | 13 | SG-06.6 *(Stretch)* Bounded sensitivity experiment | to add | — | experiment spec |
 
 ## Reproduce everything
@@ -57,6 +57,7 @@ $P -m ml.train --model upgrade --features base
 $P -m ml.train --model upgrade --features base_mre
 $P -m ml.inference --source test && $P -m ml.failures && $P -m ml.model_card
 $P -m ml.evaluate                                  # full score panel + 5-fold cross-validation (~1 min)
+$P -m ml.sensitivity                               # SG-06.5 TCA bands, masked inputs, importance
 ```
 
 ## Identifiers

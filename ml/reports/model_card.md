@@ -22,8 +22,8 @@ Validation partition, primary cohort (1,786 encounters, 126 Critical). Accuracy 
 
 | Field | Value |
 | --- | --- |
-| Version | `upgrade_base-202610310610` |
-| Bundle SHA-256 | `bb63acd40c90812b2393fdb2ce369450cbd44ef6835565991775b2d0cbad84b8` |
+| Version | `upgrade_base-202610310647` |
+| Bundle SHA-256 | `7b63c5609b0a83881bccede5a8976b506f295f7fb4377096ce1940f2ae3887fc` |
 | Training data SHA-256 | `ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6` |
 | Upgrade threshold | 0.12 |
 | Features | 29 (`base` set in `ml/features.py`) |

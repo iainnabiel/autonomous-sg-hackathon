@@ -1,6 +1,6 @@
 {
   "task": "SG-05",
-  "model_version": "upgrade_base-202610310610",
+  "model_version": "upgrade_base-202610310647",
   "config": {
     "run": "upgrade_base",
     "model": "upgrade",
@@ -188,6 +188,6 @@
     },
     "upgraded_encounters_primary": 30
   },
-  "runtime_seconds": 13.5,
+  "runtime_seconds": 12.9,
   "not_evaluated": "test_data.csv has no outcomes; it is scored only for demo predictions (SG-06.3)."
 }
