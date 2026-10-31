@@ -18,7 +18,7 @@ from contracts.tiers import Tier
 
 
 class PriorityBand(str, Enum):
-    """Allowed labels only. SG-01.4 owns the mapping rules."""
+    """Allowed labels. ``contracts.triage`` assigns them and does not change tier rules."""
 
     IMMEDIATE = "Immediate"
     HIGH = "High"
