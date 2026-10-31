@@ -76,11 +76,11 @@ export const OPERATORS: Operator[] = [
     accent: '#a99cff',
   },
   {
-    id: 'op-ntu',
+    id: 'op-smu',
     name: 'Marcus Tan',
     short_name: 'Marcus',
     initials: 'MT',
-    organisation: 'NTU Satellite Research Centre',
+    organisation: 'SMU Satellite Research Centre',
     title: 'Ground Segment Operations Engineer',
     handle: 'm.tan',
     constellations: ['HALCYON'],
@@ -160,9 +160,9 @@ export const SATELLITES: Satellite[] = [
   sat('AUR-3', 'AURORA-3', 'AURORA', 'op-nus', 'payload', 'manoeuvre planned', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 180 }, ['train:8591'], 'Technology demonstration'),
   sat('AUR-4', 'AURORA-4', 'AURORA', 'op-nus', 'payload', 'nominal', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 270 }, ['train:12527'], 'Technology demonstration'),
 
-  sat('HAL-1', 'HALCYON-1', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 30 }, ['train:2563'], 'Earth observation'),
-  sat('HAL-2', 'HALCYON-2', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 150 }, ['train:12992'], 'Earth observation'),
-  sat('HAL-3', 'HALCYON-3', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 270 }, ['train:3249'], 'Automatic identification system relay'),
+  sat('HAL-1', 'HALCYON-1', 'HALCYON', 'op-smu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 30 }, ['train:2563'], 'Earth observation'),
+  sat('HAL-2', 'HALCYON-2', 'HALCYON', 'op-smu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 150 }, ['train:12992'], 'Earth observation'),
+  sat('HAL-3', 'HALCYON-3', 'HALCYON', 'op-smu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 270 }, ['train:3249'], 'Automatic identification system relay'),
 
   // Context objects: nobody in the demo operates these. They are the "other side" of the encounters.
   sat('OBJ-30412', 'Fragment 30412', null, null, 'debris', null, { altitude_km: 565, inclination_deg: 71, raan_deg: 310, phase_deg: 12 }, [], 'Fragmentation debris'),
