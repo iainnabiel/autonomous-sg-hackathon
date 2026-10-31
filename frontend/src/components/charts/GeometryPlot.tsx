@@ -52,7 +52,7 @@ export function GeometryPlot({ geometry, missDistance }: { geometry: Geometry; m
           )}
         </span>
         <span>relative speed <span className="text-ink-2">{formatSpeed(relative_speed_m_s)}</span></span>
-        <button type="button" onClick={() => setRun((n) => n + 1)} className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line-strong px-2.5 py-1 text-[11px] text-ink-2 transition-colors hover:border-signal/40 hover:text-ink">
+        <button type="button" onClick={() => setRun((n) => n + 1)} className="btn btn-secondary ml-auto h-8 px-2.5 text-[12px]">
           <Play size={11} /> {run === 0 ? 'Play schematic flyby' : 'Replay'}
         </button>
       </div>

@@ -21,8 +21,8 @@ export function Evaluation() {
     <Page wide>
       <PageHeader
         eyebrow="Evaluation"
-        title={<>Three separate claims, each with its denominator</>}
-        lede="How many critical endings the forecast catches beyond the persistence rule and at what false-alarm cost, how the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than simpler rankings. Validation only: the test file has no outcomes."
+        title={<>Model performance</>}
+        lede="Results on 1,786 held-out encounters the model never saw during training. The test file has no outcomes, so no test score is reported."
         aside={state.status === 'ready' && state.data.status === 'evaluated' ? <>model <span className="text-ink-2">{state.data.model_version}</span> · policy <span className="text-ink-2">{state.data.policy_version}</span></> : undefined}
       />
       {state.status === 'loading' && <LoadingBlock className="mx-0 h-72" />}
@@ -217,14 +217,14 @@ function Evidence({ m }: { m: MetricsResponse }) {
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex rounded-md border border-line bg-base/60 p-0.5" role="group" aria-label="Model">
                 {m.models.map((x) => (
-                  <button key={x.key} type="button" aria-pressed={matrixModel === x.key} onClick={() => setMatrixModel(x.key)} className={`rounded px-2.5 py-1 text-[11px] ${matrixModel === x.key ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'}`}>
+                  <button key={x.key} type="button" aria-pressed={matrixModel === x.key} onClick={() => setMatrixModel(x.key)} className={`rounded px-2.5 py-1 text-[12px] font-medium transition-colors ${matrixModel === x.key ? 'bg-signal text-void' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}>
                     {x.role === 'baseline' ? 'rule' : x.role === 'shipped' ? 'shipped' : '+ max_risk'}
                   </button>
                 ))}
               </div>
               <div className="flex rounded-md border border-line bg-base/60 p-0.5" role="group" aria-label="Cohort">
                 {(['primary', 'all_usable'] as const).map((c) => (
-                  <button key={c} type="button" aria-pressed={cohort === c} onClick={() => setCohort(c)} className={`rounded px-2.5 py-1 text-[11px] ${cohort === c ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'}`}>
+                  <button key={c} type="button" aria-pressed={cohort === c} onClick={() => setCohort(c)} className={`rounded px-2.5 py-1 text-[12px] font-medium transition-colors ${cohort === c ? 'bg-signal text-void' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}>
                     {c === 'primary' ? 'primary cohort' : 'all usable'}
                   </button>
                 ))}

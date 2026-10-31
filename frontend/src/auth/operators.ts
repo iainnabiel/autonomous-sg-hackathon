@@ -52,12 +52,12 @@ export const OPERATORS: Operator[] = [
   },
   {
     id: 'op-horizon',
-    name: 'Daniel Okafor',
-    short_name: 'Daniel',
-    initials: 'DO',
+    name: 'Julian Okafor',
+    short_name: 'Julian',
+    initials: 'JO',
     organisation: 'Horizon Orbital Services',
     title: 'Constellation Operations Lead',
-    handle: 'd.okafor',
+    handle: 'j.okafor',
     constellations: ['LATTICE'],
   },
 ]
@@ -73,7 +73,33 @@ function sat(
   encounter_ids: string[] = [],
   role: string | null = null,
 ): Satellite {
-  return { id, name, constellation, operator_id, category, status, orbit, encounter_ids, role }
+  return { id, name, constellation, operator_id, category, status, orbit, encounter_ids: encounter_ids.map(liveId).filter((x): x is string => !!x), role }
+}
+
+// When the dashboard runs against the API (VITE_API_URL set, e.g. ml.demo_api on held-out
+// validation data), each demo satellite is paired with a real encounter chosen to match its
+// fixture's case. The pairing is a demonstration device: the dataset has no satellite names.
+// No real counterpart exists for "no message ≥ 2 days out" in the validation set, so that one is null.
+const LIVE = Boolean(((import.meta.env.VITE_API_URL as string | undefined) ?? '').trim())
+export const LIVE_ENCOUNTER: Record<string, string | null> = {
+  'fixture:0412': 'train:6237', // forecast caught a critical ending the rule missed (model card)
+  'fixture:1187': 'train:8767', // critical by probability and distance
+  'fixture:0935': 'train:9051', // critical by probability only
+  'fixture:0873': 'train:8732', // limitation: looked safe at the 2-day cutoff
+  'fixture:2210': 'train:5253', // forecast raised elevated to critical
+  'fixture:0566': 'train:8216', // weak upgrade, score just over the threshold
+  'fixture:0078': 'train:10690', // elevated within 24 h
+  'fixture:1653': 'train:8901', // single early message
+  'fixture:0301': 'train:7974', // elevated, later
+  'fixture:1920': 'train:9141', // elevated by distance only, Pc at the floor
+  'fixture:0244': 'train:12589', // space weather missing
+  'fixture:2044': 'train:8152', // safe
+  'fixture:0819': 'train:3991', // safe, Pc at the floor
+  'fixture:1371': 'train:10817', // safe, rocket body
+  'fixture:1504': null, // no real counterpart in the validation cohort
+}
+function liveId(id: string): string | null {
+  return LIVE ? LIVE_ENCOUNTER[id] ?? null : id
 }
 
 // MERIDIAN: six near-equatorial imaging satellites at 560 km, 10°.
@@ -133,7 +159,7 @@ export function satelliteForEncounter(encounterId: string): Satellite | undefine
 }
 
 /** The tracked object on the other side of each fixture encounter, where the demo defines one. */
-export const CHASERS: Record<string, string> = {
+const FIXTURE_CHASERS: Record<string, string> = {
   'fixture:0412': 'OBJ-30412',
   'fixture:1187': 'OBJ-21187',
   'fixture:0935': 'OBJ-40935',
@@ -143,3 +169,10 @@ export const CHASERS: Record<string, string> = {
   'fixture:0873': 'OBJ-80873',
   'fixture:1504': 'OBJ-90657',
 }
+
+/** Chaser objects keyed by the encounter IDs actually in use (fixture or live). */
+export const CHASERS: Record<string, string> = Object.fromEntries(
+  Object.entries(FIXTURE_CHASERS)
+    .map(([id, obj]) => [liveId(id), obj] as const)
+    .filter((e): e is readonly [string, string] => e[0] !== null),
+)

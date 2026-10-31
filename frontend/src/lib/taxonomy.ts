@@ -3,11 +3,11 @@ import type { Priority, ReviewStatus, RiskTier, RuleKind } from '../api/types'
 export const PRIORITY_ORDER: Priority[] = ['immediate', 'high', 'scheduled', 'routine', 'incomplete']
 
 export const PRIORITY_META: Record<Priority, { label: string; rule: string }> = {
-  immediate: { label: 'Immediate', rule: 'Critical, closest approach within 24 h' },
-  high: { label: 'High', rule: 'Other critical, or elevated within 24 h' },
-  scheduled: { label: 'Scheduled', rule: 'Other elevated' },
-  routine: { label: 'Routine', rule: 'Safe with adequate inputs' },
-  incomplete: { label: 'Incomplete', rule: 'Assessment could not be completed — needs review' },
+  immediate: { label: 'Immediate', rule: 'Critical, within 24 hours' },
+  high: { label: 'High', rule: 'Critical later, or elevated within 24 hours' },
+  scheduled: { label: 'Scheduled', rule: 'Elevated, more than 24 hours away' },
+  routine: { label: 'Routine', rule: 'Safe, all data present' },
+  incomplete: { label: 'Incomplete', rule: 'Data missing — review manually' },
 }
 
 export const TIER_META: Record<RiskTier | 'unknown', { label: string; color: string }> = {

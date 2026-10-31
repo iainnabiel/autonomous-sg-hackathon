@@ -5,7 +5,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
 import type { Satellite } from '../../auth/operators'
 import { GlobeBoundary, GlobeFallback, webglAvailable } from './GlobeFallback'
-import { getLand } from './land'
+import { getLand, lonLatToVec } from './land'
 
 // Operational globe. Earth is drawn as luminous land dots and coastlines on a dark sphere.
 // Satellites move on circular orbits from the demo asset list (auth/operators.ts); the
@@ -223,6 +223,7 @@ function Earth({ compact }: { compact?: boolean }) {
       {coastPoints.map((pts, i) => (
         <Line key={i} points={pts} color="#6fe3ff" transparent opacity={0.35} lineWidth={1} />
       ))}
+      {!compact && <PlaceLabels />}
       {/* Atmosphere: back-facing shell, additive fresnel. */}
       <mesh scale={1.045}>
         <sphereGeometry args={[1, 64, 64]} />
@@ -428,5 +429,92 @@ function Stars() {
       </bufferGeometry>
       <pointsMaterial size={0.04} color="#a7b2c6" transparent opacity={0.5} sizeAttenuation />
     </points>
+  )
+}
+
+// Geographic labels for orientation. Approximate label positions, not boundaries. Each label is
+// drawn once to a canvas texture and laid flat on the surface, so the planet hides the far side.
+type Place = { name: string; lon: number; lat: number; kind: 'continent' | 'ocean' | 'country' }
+const PLACES: Place[] = [
+  { name: 'NORTH AMERICA', lon: -102, lat: 47, kind: 'continent' },
+  { name: 'SOUTH AMERICA', lon: -60, lat: -14, kind: 'continent' },
+  { name: 'EUROPE', lon: 15, lat: 54, kind: 'continent' },
+  { name: 'AFRICA', lon: 20, lat: 6, kind: 'continent' },
+  { name: 'ASIA', lon: 90, lat: 50, kind: 'continent' },
+  { name: 'AUSTRALIA', lon: 134, lat: -24, kind: 'continent' },
+  { name: 'ANTARCTICA', lon: 30, lat: -78, kind: 'continent' },
+  { name: 'Pacific Ocean', lon: -150, lat: 5, kind: 'ocean' },
+  { name: 'Atlantic Ocean', lon: -35, lat: 20, kind: 'ocean' },
+  { name: 'Indian Ocean', lon: 78, lat: -22, kind: 'ocean' },
+  { name: 'Southern Ocean', lon: -100, lat: -60, kind: 'ocean' },
+  { name: 'Arctic Ocean', lon: 20, lat: 82, kind: 'ocean' },
+  { name: 'United States', lon: -98, lat: 38, kind: 'country' },
+  { name: 'Canada', lon: -105, lat: 60, kind: 'country' },
+  { name: 'Brazil', lon: -52, lat: -10, kind: 'country' },
+  { name: 'United Kingdom', lon: -2, lat: 54, kind: 'country' },
+  { name: 'Russia', lon: 95, lat: 62, kind: 'country' },
+  { name: 'China', lon: 103, lat: 35, kind: 'country' },
+  { name: 'India', lon: 79, lat: 22, kind: 'country' },
+  { name: 'Japan', lon: 138, lat: 37, kind: 'country' },
+  { name: 'Singapore', lon: 103.8, lat: 1.35, kind: 'country' },
+  { name: 'Indonesia', lon: 116, lat: -2, kind: 'country' },
+  { name: 'South Africa', lon: 24, lat: -30, kind: 'country' },
+  { name: 'Egypt', lon: 30, lat: 27, kind: 'country' },
+]
+
+const LABEL_STYLE = {
+  continent: { font: '600 64px Inter Variable, system-ui, sans-serif', color: 'rgba(233, 238, 247, 0.62)', height: 0.05, spacing: 6 },
+  ocean: { font: 'italic 400 56px Inter Variable, system-ui, sans-serif', color: 'rgba(111, 227, 255, 0.5)', height: 0.042, spacing: 2 },
+  country: { font: '500 48px Inter Variable, system-ui, sans-serif', color: 'rgba(167, 178, 198, 0.7)', height: 0.03, spacing: 0 },
+} as const
+
+function makeLabelTexture(text: string, kind: Place['kind']) {
+  const st = LABEL_STYLE[kind]
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  ctx.font = st.font
+  const chars = [...text]
+  const width = Math.ceil(chars.reduce((w, c) => w + ctx.measureText(c).width + st.spacing, 0)) + 16
+  canvas.width = width
+  canvas.height = 84
+  ctx.font = st.font
+  ctx.fillStyle = st.color
+  ctx.textBaseline = 'middle'
+  let x = 8
+  for (const c of chars) {
+    ctx.fillText(c, x, 42)
+    x += ctx.measureText(c).width + st.spacing
+  }
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.anisotropy = 4
+  tex.colorSpace = THREE.SRGBColorSpace
+  return { tex, aspect: width / 84 }
+}
+
+function PlaceLabel({ place }: { place: Place }) {
+  const { tex, aspect } = useMemo(() => makeLabelTexture(place.name, place.kind), [place])
+  useEffect(() => () => tex.dispose(), [tex])
+  const ref = useRef<THREE.Mesh>(null)
+  const pos = useMemo(() => new THREE.Vector3(...lonLatToVec(place.lon, place.lat, 1.006)), [place])
+  useEffect(() => {
+    // Face outward from the centre so the label lies on the surface, north up.
+    ref.current?.lookAt(pos.clone().multiplyScalar(2))
+  }, [pos])
+  const h = LABEL_STYLE[place.kind].height
+  return (
+    <mesh ref={ref} position={pos} raycast={() => null} renderOrder={2}>
+      <planeGeometry args={[h * aspect, h]} />
+      <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
+    </mesh>
+  )
+}
+
+function PlaceLabels() {
+  return (
+    <group>
+      {PLACES.map((p) => (
+        <PlaceLabel key={p.name} place={p} />
+      ))}
+    </group>
   )
 }

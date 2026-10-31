@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDown, ArrowUpRight, Crosshair, Layers, X } from 'lucide-react'
+import { ArrowDown, ArrowUpRight, Crosshair, ListOrdered, Radar as RadarIcon, RotateCcw, X } from 'lucide-react'
 import { fetchQueue } from '../api/client'
 import { useResource } from '../api/useResource'
 import type { QueueItem } from '../api/types'
@@ -19,6 +19,7 @@ const Globe = lazy(() => import('../components/globe/Globe').then((m) => ({ defa
 
 const ease = [0.22, 1, 0.36, 1] as const
 const CATEGORIES: AssetCategory[] = ['payload', 'rocket body', 'debris']
+const CATEGORY_LABEL: Record<AssetCategory, string> = { payload: 'Satellites', 'rocket body': 'Rocket bodies', debris: 'Debris' }
 const BAND_RANK = { immediate: 0, high: 1, incomplete: 2, scheduled: 3, routine: 4 } as const
 
 /**
@@ -131,13 +132,13 @@ export function OrbitalOverview() {
         className="pointer-events-none relative z-10 -mt-24 px-5 lg:absolute lg:top-8 lg:left-8 lg:mt-0 lg:w-[min(420px,calc(100%-64px))] lg:px-0"
       >
         <div className="pointer-events-auto rounded-xl border border-line bg-void/70 p-5 backdrop-blur-xl">
-          <p className="eyebrow text-signal/80">Operations briefing</p>
+          <p className="eyebrow text-signal/80">Today’s summary</p>
           <h1 className="mt-2 text-[22px] leading-[1.15] font-medium tracking-[-0.02em] text-ink">
             {operator?.short_name}, {state.status === 'ready' ? (
               <>
-                {needsHuman.length === 0 ? 'nothing on your assets needs a human right now.' : (
+                {needsHuman.length === 0 ? 'no alerts on your satellites need review.' : (
                   <>
-                    <span className="accent text-signal">{needsHuman.length}</span> encounter{needsHuman.length === 1 ? '' : 's'} on your assets need{needsHuman.length === 1 ? 's' : ''} a human.
+                    <span className="text-signal">{needsHuman.length}</span> alert{needsHuman.length === 1 ? '' : 's'} on your satellites need{needsHuman.length === 1 ? 's' : ''} review.
                   </>
                 )}
               </>
@@ -145,17 +146,24 @@ export function OrbitalOverview() {
               <span className="skeleton inline-block h-5 w-40 rounded align-middle" />
             )}
           </h1>
-          <p className="mt-1 text-xs text-ink-3">{operator?.organisation} · {ownIds.size} assets in {operator?.constellations.join(' and ')}</p>
+          <p className="mt-1 text-xs text-ink-3">{operator?.organisation} · {ownIds.size} satellites in {operator?.constellations.join(' and ')}</p>
 
           <dl className="mt-4 grid grid-cols-4 gap-px overflow-hidden rounded-md border border-line bg-line">
-            <Stat label="Assets" value={ownIds.size} />
-            <Stat label="Immediate" value={state.status === 'ready' ? immediate.length : undefined} tone={immediate.length ? 'var(--color-critical)' : undefined} />
-            <Stat label="≤ 24 h" value={state.status === 'ready' ? within24.length : undefined} />
-            <Stat label="Incomplete" value={state.status === 'ready' ? incomplete.length : undefined} tone={incomplete.length ? 'var(--color-unknown)' : undefined} />
+            <Stat label="My satellites" hint="Satellites you operate" value={ownIds.size} />
+            <Stat label="Act now" hint="Critical and closest approach within 24 hours" value={state.status === 'ready' ? immediate.length : undefined} tone={immediate.length ? 'var(--color-critical)' : undefined} />
+            <Stat label="Within 24 h" hint="Closest approach within the next 24 hours" value={state.status === 'ready' ? within24.length : undefined} />
+            <Stat label="Missing data" hint="Assessment incomplete: a required input is missing" value={state.status === 'ready' ? incomplete.length : undefined} tone={incomplete.length ? 'var(--color-unknown)' : undefined} />
           </dl>
 
           {top.length > 0 && (
-            <ol className="mt-4 divide-y divide-line border-t border-line">
+            <>
+            <div className="mt-4 flex items-center gap-3 border-t border-line pt-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
+              <span className="w-16">Priority</span>
+              <span>Satellite</span>
+              <span>Encounter</span>
+              <span className="ml-auto pr-5">Time to approach</span>
+            </div>
+            <ol className="divide-y divide-line">
               {top.map((e) => {
                 const s = satOf(e)
                 return (
@@ -171,10 +179,12 @@ export function OrbitalOverview() {
                 )
               })}
             </ol>
+            </>
           )}
-          <div className="mt-3 flex items-center justify-between">
-            <Link to="/queue" className="text-xs text-signal hover:underline">Open the full review queue</Link>
-            <DemoTag />
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link to="/queue" className="btn btn-primary h-8 text-[12px]"><ListOrdered size={14} /> Review all alerts</Link>
+            <Link to="/radar" className="btn btn-secondary h-8 text-[12px]"><RadarIcon size={14} /> Upcoming by time</Link>
+            <span className="ml-auto"><DemoTag /></span>
           </div>
         </div>
       </motion.div>
@@ -187,31 +197,39 @@ export function OrbitalOverview() {
         className="pointer-events-none relative z-10 mt-4 px-5 pb-6 lg:absolute lg:bottom-8 lg:left-8 lg:mt-0 lg:max-w-[calc(100%-64px)] lg:px-0 lg:pb-0"
       >
         <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl border border-line bg-void/70 p-2 backdrop-blur-xl">
-          <Seg value={scope} onChange={setScope} options={[{ v: 'mine', l: 'My assets' }, { v: 'all', l: 'All tracked' }]} icon={<Layers size={12} />} />
+          <FilterLabel>Show</FilterLabel>
+          <Seg value={scope} onChange={setScope} options={[{ v: 'mine', l: 'My satellites' }, { v: 'all', l: 'All objects' }]} />
           <span className="hidden h-5 w-px bg-line sm:block" />
-          <div className="flex items-center gap-1" role="group" aria-label="Category">
+          <FilterLabel>Type</FilterLabel>
+          <div className="flex items-center gap-1" role="group" aria-label="Object type">
             {CATEGORIES.map((c) => {
               const on = cats.has(c)
               return (
-                <button key={c} type="button" aria-pressed={on} onClick={() => setCats((s) => { const n = new Set(s); on ? n.delete(c) : n.add(c); return n })} className={`rounded-full border px-2.5 py-1 text-[11px] capitalize transition-colors ${on ? 'border-line-strong bg-raised text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'}`}>
-                  {c}
+                <button key={c} type="button" aria-pressed={on} onClick={() => setCats((s) => { const n = new Set(s); on ? n.delete(c) : n.add(c); return n })} className={`chip ${on ? 'chip-on' : ''}`}>
+                  {CATEGORY_LABEL[c]}
                 </button>
               )
             })}
           </div>
           <span className="hidden h-5 w-px bg-line sm:block" />
-          <select value={region} onChange={(e) => setRegion(e.target.value as OrbitRegion | 'all')} aria-label="Orbit region" className="h-7 rounded-md border border-line bg-transparent px-2 text-[11px] text-ink-2 focus:border-signal/40 focus:outline-none">
-            <option value="all">All regions</option>
+          <FilterLabel>Orbit</FilterLabel>
+          <select value={region} onChange={(e) => setRegion(e.target.value as OrbitRegion | 'all')} aria-label="Orbit" className={`h-8 rounded-md border bg-void px-2 text-[12px] focus:outline-none ${region === 'all' ? 'border-line-strong text-ink-2' : 'border-signal/60 text-signal'}`}>
+            <option value="all">All orbits</option>
             {(Object.keys(REGION_LABEL) as OrbitRegion[]).map((r) => (
               <option key={r} value={r}>{REGION_LABEL[r]}</option>
             ))}
           </select>
-          <button type="button" aria-pressed={openOnly} onClick={() => setOpenOnly((v) => !v)} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${openOnly ? 'border-critical/40 bg-critical/10 text-critical' : 'border-transparent text-ink-3 hover:text-ink-2'}`}>
-            <Crosshair size={11} /> With open encounters
+          <button type="button" aria-pressed={openOnly} onClick={() => setOpenOnly((v) => !v)} className={`chip ${openOnly ? 'border-critical/60 bg-critical/15 text-critical hover:text-critical' : ''}`}>
+            <Crosshair size={12} /> Only with alerts
           </button>
-          <span className="ml-1 font-mono text-[10px] text-ink-3">{visible.length} shown</span>
+          {(scope !== 'mine' || cats.size > 0 || region !== 'all' || openOnly) && (
+            <button type="button" onClick={() => (setScope('mine'), setCats(new Set()), setRegion('all'), setOpenOnly(false))} className="btn btn-secondary h-8 px-2.5 text-[12px]">
+              <RotateCcw size={12} /> Reset filters
+            </button>
+          )}
+          <span className="ml-1 font-mono text-[11px] text-ink-3">{visible.length} shown</span>
         </div>
-        <p className="mt-2 font-mono text-[10px] text-ink-3">Positions and orbits are illustrative — a demonstration constellation, not propagated elements. Drag to rotate, scroll to zoom, click a mark to focus.</p>
+        <p className="mt-2 font-mono text-[10px] text-ink-3">Satellite positions are illustrative, not real orbits. Drag to rotate, scroll to zoom, select a satellite to see its alerts.</p>
       </motion.div>
 
       {/* Contextual sidebar — right. */}
@@ -231,16 +249,20 @@ export function OrbitalOverview() {
       </AnimatePresence>
 
       <a href="#how" className="absolute right-5 bottom-8 z-10 hidden items-center gap-2 md:right-8 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3 transition-colors hover:text-ink-2 lg:inline-flex">
-        How Orbit decides <ArrowDown size={11} />
+        How alerts are ranked <ArrowDown size={11} />
       </a>
     </section>
   )
 }
 
-function Stat({ label, value, tone }: { label: string; value: number | undefined; tone?: string }) {
+function FilterLabel({ children }: { children: React.ReactNode }) {
+  return <span className="pl-1 font-mono text-[10px] uppercase tracking-wider text-ink-3">{children}</span>
+}
+
+function Stat({ label, hint, value, tone }: { label: string; hint?: string; value: number | undefined; tone?: string }) {
   return (
-    <div className="bg-panel/80 px-3 py-2">
-      <dt className="eyebrow text-[10px]">{label}</dt>
+    <div className="bg-panel/80 px-3 py-2" title={hint}>
+      <dt className="text-[11px] font-medium text-ink-2">{label}</dt>
       <dd className="tabular mt-0.5 text-xl font-light text-ink" style={{ color: tone }}>
         {value === undefined ? <span className="skeleton inline-block h-5 w-6 rounded align-middle" /> : value}
       </dd>
@@ -253,7 +275,7 @@ function Seg<T extends string>({ value, onChange, options, icon }: { value: T; o
     <div className="flex items-center gap-0.5 rounded-md border border-line p-0.5" role="radiogroup">
       {icon && <span className="px-1.5 text-ink-3">{icon}</span>}
       {options.map((o) => (
-        <button key={o.v} type="button" role="radio" aria-checked={value === o.v} onClick={() => onChange(o.v)} className={`rounded px-2.5 py-1 text-[11px] transition-colors ${value === o.v ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink-2'}`}>
+        <button key={o.v} type="button" role="radio" aria-checked={value === o.v} onClick={() => onChange(o.v)} className={`rounded px-3 py-1 text-[12px] font-medium transition-colors ${value === o.v ? 'bg-signal text-void' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}>
           {o.l}
         </button>
       ))}
@@ -268,7 +290,7 @@ function AssetPanel({ s, own, encounters, onClose }: { s: Satellite; own: boolea
     <div>
       <div className="flex items-start justify-between border-b border-line px-5 py-4">
         <div>
-          <p className="eyebrow">{own ? 'Your asset' : s.operator_id ? 'Another operator’s asset' : 'Tracked object'}</p>
+          <p className="eyebrow">{own ? 'Your satellite' : s.operator_id ? 'Another operator’s satellite' : 'Tracked object'}</p>
           <h2 className="mt-1 font-mono text-lg text-ink">{s.name}</h2>
           <p className="text-xs text-ink-3">{s.constellation ? `${s.constellation} constellation · ` : ''}{s.role ?? s.category}</p>
         </div>
@@ -282,9 +304,9 @@ function AssetPanel({ s, own, encounters, onClose }: { s: Satellite; own: boolea
         <div className="bg-void/40 px-4 py-3"><dt className="eyebrow text-[10px]">Status</dt><dd className={`mt-1 ${s.status ? STATUS_TONE[s.status] : 'text-ink-3'}`}>{s.status ?? 'untracked by you'}</dd></div>
       </dl>
       <div className="px-5 py-4">
-        <h3 className="eyebrow mb-2">Open encounters {encounters.length > 0 && <span className="tabular ml-1 text-ink-2">{encounters.length}</span>}</h3>
+        <h3 className="eyebrow mb-2">Active alerts {encounters.length > 0 && <span className="tabular ml-1 text-ink-2">{encounters.length}</span>}</h3>
         {encounters.length === 0 ? (
-          <p className="text-xs text-ink-3">Nothing queued against this object.</p>
+          <p className="text-xs text-ink-3">No alerts for this object.</p>
         ) : (
           <ol className="divide-y divide-line">
             {encounters.map((e) => (
@@ -301,7 +323,7 @@ function AssetPanel({ s, own, encounters, onClose }: { s: Satellite; own: boolea
           </ol>
         )}
       </div>
-      <p className="border-t border-line px-5 py-3 text-[10px] leading-relaxed text-ink-3">Asset details are demonstration data. Encounter rows come from the review queue.</p>
+      <p className="border-t border-line px-5 py-3 text-[10px] leading-relaxed text-ink-3">Satellite details are illustrative. Alerts come from the review queue.</p>
     </div>
   )
 }

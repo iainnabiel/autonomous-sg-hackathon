@@ -38,12 +38,12 @@ export function Login() {
       <section className="relative z-10 flex flex-col justify-between px-6 py-8 md:px-12 md:py-10">
         <Wordmark size={28} />
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }} className="my-16 max-w-2xl lg:my-0">
-          <p className="eyebrow text-signal/80">Satellite operations intelligence</p>
-          <h1 className="mt-5 text-[40px] leading-[0.98] font-medium tracking-[-0.03em] text-ink sm:text-[56px] lg:text-[64px]">
-            Every conjunction, <span className="accent text-signal">in order of consequence.</span>
+          <p className="eyebrow text-signal/80">Space situational awareness</p>
+          <h1 className="mt-5 text-[36px] leading-[1.05] font-medium tracking-[-0.02em] text-ink sm:text-[48px] lg:text-[54px]">
+            Conjunction risk assessment for satellite operators
           </h1>
           <p className="mt-6 max-w-lg text-[16px] leading-relaxed text-ink-2">
-            Orbit screens the day's conjunction messages for the assets you are authorised to operate, ranks them by risk and urgency, and records why.
+            Review close-approach warnings for the satellites you operate. Each warning is ranked by risk and urgency, and the reasons are recorded.
           </p>
         </motion.div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-3">
@@ -103,9 +103,9 @@ export function Login() {
           <button
             type="submit"
             disabled={entering}
-            className="group mt-7 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-ink text-sm font-medium text-void transition-colors hover:bg-signal disabled:opacity-60"
+            className="btn btn-primary group mt-7 h-10 w-full"
           >
-            {entering ? 'Opening operations…' : 'Enter operations'}
+            {entering ? 'Signing in…' : 'Sign in'}
             {!entering && <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />}
           </button>
 
