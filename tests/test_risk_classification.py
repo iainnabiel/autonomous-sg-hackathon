@@ -48,8 +48,8 @@ class ProbabilityThresholdTest(unittest.TestCase):
     def test_certain_collision_is_critical(self) -> None:
         self.assert_tier(0.0, RiskTier.CRITICAL)
 
-    def test_minus_thirty_is_an_ordinary_value(self) -> None:
-        # Not treated as a sentinel; its meaning is unresolved (SG-04.1).
+    def test_minus_thirty_is_treated_as_negligible_probability(self) -> None:
+        # Organisers' tier_rules: -30 is a placeholder meaning Pc ~ 0.
         self.assert_tier(-30.0, RiskTier.SAFE)
         result = classify_risk(-30.0, 0.5)
         self.assertIs(result.tier, RiskTier.CRITICAL)
@@ -174,8 +174,9 @@ def _local_train_data() -> Path | None:
 
 TRAIN_DATA = _local_train_data()
 
-# Unconfirmed assumption (SG-01.3): the dataset's miss_distance is in metres.
-ASSUMED_METRES_PER_KM = 1000
+# The organisers' data_notes state miss_distance is in metres. SG-02.1 owns the
+# real conversion; this smoke check does its own.
+METRES_PER_KM = 1000
 
 
 @unittest.skipIf(TRAIN_DATA is None, "local train_data.csv not found; set SG_DATA_DIR")
@@ -187,7 +188,7 @@ class TrainingDataTest(unittest.TestCase):
         with TRAIN_DATA.open(newline="") as handle:
             for row in csv.DictReader(handle):
                 log_risk = float(row["risk"])
-                distance_km = float(row["miss_distance"]) / ASSUMED_METRES_PER_KM
+                distance_km = float(row["miss_distance"]) / METRES_PER_KM
                 result = classify_risk(log_risk, distance_km)
                 self.assertTrue(result.is_complete, row["event_id"])
                 if log_risk >= -4.0 or distance_km < 1.0:

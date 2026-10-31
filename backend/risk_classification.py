@@ -1,26 +1,31 @@
-"""SG-02.2: operational risk tiers from log10(Pc) and miss distance.
+"""SG-02.2: operational risk tiers from one message's log10(Pc) and miss distance.
 
-Thresholds follow the challenge brief, evaluated critical first:
+Thresholds follow the organisers' tier_rules, evaluated critical first:
 
 - Critical: log10(Pc) >= -4, or miss distance < 1 km.
 - Elevated: log10(Pc) >= -6, or miss distance <= 5 km.
 - Safe: otherwise.
 
+The inputs are the values a conjunction message supplies (the dataset's
+``risk`` and ``miss_distance``), not model output. The model predicts an
+encounter's final tier separately (docs/ML_DECISIONS.md, D3); this module
+does not predict or upgrade tiers, and it does not assign queue priority.
+
 Accepted inputs, both real numbers:
 
 - ``log_risk`` is log10(Pc), not Pc, finite and <= 0. A raw Pc such as 1e-5
   would be read as log10(Pc) = 0.00001 and rejected as out of range.
-- ``miss_distance_km`` is kilometres, finite and >= 0. Converting the dataset's
-  ``miss_distance`` (assumed metres, unconfirmed) is SG-02.1 and not done here.
+- ``miss_distance_km`` is kilometres, finite and >= 0. The organisers state the
+  dataset's ``miss_distance`` is metres; converting it is SG-02.1, not done here.
 
 An invalid or missing input never yields Safe. If one input is unusable but the
 other alone is critical, the assessment stays Critical and is marked
 incomplete; otherwise the tier is ``None``.
 
-``log_risk = -30`` is not treated specially. It is classified as Pc = 1e-30, so
-it is Safe on probability and the tier depends on distance. Whether -30 is a
-reporting floor or sentinel is unresolved (SG-04.1); if it is, callers should
-mark it invalid before calling.
+``log_risk = -30`` is the organisers' placeholder for a probability too small
+to compute, to be treated as Pc ~ 0. It is a valid input here and is Safe on
+probability, so the tier depends on distance. Callers should not mark it
+invalid: that would stop a distant -30 message from being Safe.
 
 The tier and rule names below are provisional until the SG-01.2 contracts
 define the shared risk-tier type.
