@@ -5,7 +5,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import * as THREE from 'three'
 import type { Satellite } from '../../auth/operators'
 import { GlobeBoundary, GlobeFallback, webglAvailable } from './GlobeFallback'
-import { getLand, lonLatToVec } from './land'
+import { computeLandDots, getCoasts, lonLatToVec } from './land'
 
 // Operational globe. Earth is drawn as luminous land dots and coastlines on a dark sphere.
 // Satellites move on circular orbits from the demo asset list (auth/operators.ts); the
@@ -173,11 +173,42 @@ function CameraRig({ controls, target }: { controls: React.RefObject<OrbitContro
   return null
 }
 
+const landDots = new Map<number, Float32Array>()
+
+/** Land dots, computed in a worker so the globe draws at once; null until ready. Cached per page load. */
+function useLandDots(count: number): Float32Array | null {
+  const [dots, setDots] = useState(() => landDots.get(count) ?? null)
+  useEffect(() => {
+    if (landDots.has(count)) return setDots(landDots.get(count)!)
+    let done = false
+    const finish = (d: Float32Array) => {
+      if (done) return
+      done = true
+      landDots.set(count, d)
+      setDots(d)
+    }
+    let worker: Worker | null = null
+    try {
+      worker = new Worker(new URL('./land.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = (e: MessageEvent<Float32Array>) => finish(e.data)
+      worker.onerror = () => finish(computeLandDots(count))
+      worker.postMessage(count)
+    } catch {
+      finish(computeLandDots(count))
+    }
+    return () => {
+      done = true
+      worker?.terminate()
+    }
+  }, [count])
+  return dots
+}
+
 function Earth({ compact }: { compact?: boolean }) {
-  const land = useMemo(() => getLand(compact ? 7000 : 16000), [compact])
+  const dots = useLandDots(compact ? 7000 : 16000)
   const coastPoints = useMemo(
-    () => land.coasts.map((c) => Array.from({ length: c.length / 3 }, (_, j) => [c[j * 3], c[j * 3 + 1], c[j * 3 + 2]] as [number, number, number])),
-    [land],
+    () => getCoasts().map((c) => Array.from({ length: c.length / 3 }, (_, j) => [c[j * 3], c[j * 3 + 1], c[j * 3 + 2]] as [number, number, number])),
+    [],
   )
   const base = useMemo(
     () =>
@@ -214,12 +245,14 @@ function Earth({ compact }: { compact?: boolean }) {
         <sphereGeometry args={[1, 96, 96]} />
       </mesh>
       {/* Land as dots: the inverted, luminous treatment. */}
-      <points>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[land.dots, 3]} />
-        </bufferGeometry>
-        <pointsMaterial size={compact ? 0.012 : 0.0105} color="#a9e4f2" transparent opacity={0.85} sizeAttenuation depthWrite={false} />
-      </points>
+      {dots && (
+        <points>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[dots, 3]} />
+          </bufferGeometry>
+          <pointsMaterial size={compact ? 0.012 : 0.0105} color="#a9e4f2" transparent opacity={0.85} sizeAttenuation depthWrite={false} />
+        </points>
+      )}
       {coastPoints.map((pts, i) => (
         <Line key={i} points={pts} color="#6fe3ff" transparent opacity={0.35} lineWidth={1} />
       ))}
