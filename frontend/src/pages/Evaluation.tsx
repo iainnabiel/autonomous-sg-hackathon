@@ -1,0 +1,545 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight } from 'lucide-react'
+import { dataSource, fetchMetrics } from '../api/client'
+import { useResource } from '../api/useResource'
+import type { EvidenceBundle, MetricResult, MetricsResponse, ModelResult, RankingCoverage } from '../api/types'
+import { CoverageChart, type CoverageSeries } from '../components/charts/CoverageChart'
+import { ConfusionMatrix } from '../components/evaluation/ConfusionMatrix'
+import { RecallChart } from '../components/evaluation/RecallChart'
+import { Page, PageHeader, Panel, PanelHeader } from '../components/layout/Page'
+import { ErrorState, LoadingBlock } from '../components/StateViews'
+
+/**
+ * Evidence page (SG-09.1, SG-09.2). Every number comes from the metrics payload with its denominator,
+ * cohort, model and policy version. Probability-level, operational and prioritisation claims are kept apart.
+ * Anything not evaluated says so; nothing is filled in.
+ */
+export function Evaluation() {
+  const { state, retry } = useResource(fetchMetrics, 'metrics')
+  return (
+    <Page wide>
+      <PageHeader
+        eyebrow="Evaluation"
+        title={<>Three separate claims, each with its denominator</>}
+        lede="How many critical endings the forecast catches beyond the persistence rule and at what false-alarm cost, how the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than simpler rankings. Validation only: the test file has no outcomes."
+        aside={state.status === 'ready' && state.data.model_version ? <>cohort <span className="text-ink-2">{state.data.cohort_label}</span> · model <span className="text-ink-2">{state.data.model_version}</span> · schema <span className="text-ink-2">{state.data.policy_version}</span></> : undefined}
+      />
+      {state.status === 'loading' && <LoadingBlock className="mx-0 h-72" />}
+      {state.status === 'error' && (
+        <Panel>
+          <ErrorState title="Evaluation unavailable" message={state.message} onRetry={retry} />
+        </Panel>
+      )}
+      {state.status === 'ready' && (
+        <div className="flex flex-col gap-6">
+          <ContractMetrics report={state.data} />
+          {state.data.evidence && state.data.evidence.status === 'evaluated' ? <Evidence m={state.data.evidence} /> : <NotEvaluated reason={state.data.evidence?.provenance.note ?? 'The backend served the contract metrics report without the evidence bundle.'} />}
+        </div>
+      )}
+    </Page>
+  )
+}
+
+/** The contract `MetricsReport` (SG-03.4): each metric carries a state and a reason; undefined ones are marked, never zeroed. */
+function ContractMetrics({ report }: { report: MetricsResponse }) {
+  const tone: Record<MetricResult['state'], string> = { reported: 'text-ink', not_evaluated: 'text-ink-3', unavailable: 'text-elevated/90' }
+  return (
+    <Panel>
+      <PanelHeader title="Metrics report" note={`contracts.schemas.MetricsReport · cohort ${report.cohort_label}${report.sample_count !== null ? ` · n ${report.sample_count.toLocaleString()}` : ''}`} />
+      <table className="w-full font-mono text-[11px]">
+        <thead>
+          <tr className="eyebrow border-b border-line text-[10px]">
+            <th className="px-5 py-2 text-left font-medium">metric</th>
+            <th className="px-3 py-2 text-right font-medium">value</th>
+            <th className="px-3 py-2 text-left font-medium">state</th>
+            <th className="px-5 py-2 text-left font-medium">reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.metrics.map((m) => (
+            <tr key={m.name} className="border-b border-line last:border-0">
+              <td className="px-5 py-1.5 text-ink-2">{m.name}</td>
+              <td className={`tabular px-3 py-1.5 text-right ${tone[m.state]}`}>{m.value === null ? '—' : Number.isInteger(m.value) ? m.value.toLocaleString() : m.value.toFixed(3)}</td>
+              <td className={`px-3 py-1.5 ${tone[m.state]}`}>{m.state.replace('_', ' ')}</td>
+              <td className="px-5 py-1.5 text-ink-3">{m.reason}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {report.labels.length === 0 && <p className="border-t border-line px-5 py-2 text-[11px] text-ink-3">Evaluation labels are not served with this report; they are never part of an inference payload.</p>}
+    </Panel>
+  )
+}
+
+function NotEvaluated({ reason }: { reason: string }) {
+  return (
+    <Panel>
+      <div className="px-6 py-16 text-center">
+        <p className="text-sm font-medium text-ink">Not evaluated</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">{reason} Nothing is shown in its place.</p>
+      </div>
+    </Panel>
+  )
+}
+
+const fmt3 = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? 'n/a' : v.toFixed(3))
+const n = (v: number) => v.toLocaleString()
+
+function Evidence({ m }: { m: EvidenceBundle }) {
+  const shipped = m.models.find((x) => x.role === 'shipped') ?? m.models[0]
+  const baseline = m.models.find((x) => x.role === 'baseline')
+  const primary = shipped.cohorts.primary
+  const [matrixModel, setMatrixModel] = useState<string>(shipped.key)
+  const [cohort, setCohort] = useState<'primary' | 'all_usable'>('primary')
+  const matrixFor = m.models.find((x) => x.key === matrixModel) ?? shipped
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Provenance */}
+      <div className="rounded-xl border border-line bg-panel/60 px-5 py-4 font-mono text-[11px] leading-relaxed text-ink-3">
+        <div className="flex flex-wrap gap-x-6 gap-y-1">
+          <span>
+            cohort <span className="text-ink-2">{m.dataset.cohort}</span> · n <span className="tabular text-ink-2">{n(primary.n)}</span> · critical <span className="tabular text-ink-2">{primary.per_tier.Critical.support}</span>
+          </span>
+          <span>
+            model <span className="text-ink-2">{m.model_version}</span>
+            {m.model_sha256 && <span className="text-ink-3/70"> sha256 {m.model_sha256.slice(0, 12)}</span>}
+          </span>
+          <span>
+            split <span className="text-ink-2">{m.dataset.split}</span>
+          </span>
+        </div>
+        <p className="mt-2 text-ink-3">{m.dataset.cohort_definition}</p>
+        <p className="mt-2 border-t border-line pt-2">
+          <span className="text-elevated/90">{dataSource === 'api' ? 'Served by /metrics.' : 'Bundled artifact, not a live /metrics.'}</span> {m.provenance.note} Source: {m.provenance.source}
+          {m.provenance.commit && (
+            <>
+              {' '}
+              at commit <span className="text-ink-2">{m.provenance.commit}</span> ({m.provenance.branch}), bundled {m.provenance.bundled_on}.
+            </>
+          )}{' '}
+          Generated by {m.provenance.generated_by}.
+        </p>
+        <p className="mt-1">
+          <span className="text-elevated/90">Test data:</span> {m.test.state === 'unavailable' ? 'unavailable' : 'reported'}. {m.test.reason}
+        </p>
+      </div>
+
+      {/* 1. Forecast vs rule */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <Panel>
+          <PanelHeader title="1 · Does the forecast catch more critical endings than the rule?" note="primary cohort · final-tier labels · 95% intervals" />
+          <div className="grid grid-cols-2 gap-px border-b border-line bg-line md:grid-cols-4">
+            {baseline && <Tile label="Rule critical recall" value={fmt3(baseline.cohorts.primary.per_tier.Critical.recall)} sub={`${Math.round(baseline.cohorts.primary.per_tier.Critical.recall * baseline.cohorts.primary.per_tier.Critical.support)} of ${baseline.cohorts.primary.per_tier.Critical.support}`} />}
+            <Tile label="Forecast critical recall" value={fmt3(primary.per_tier.Critical.recall)} sub={`${Math.round(primary.per_tier.Critical.recall * primary.per_tier.Critical.support)} of ${primary.per_tier.Critical.support} · shipped`} tone="var(--color-signal)" />
+            <Tile label="False critical alarms" value={`${baseline ? baseline.cohorts.primary.false_critical_alarms + ' → ' : ''}${primary.false_critical_alarms}`} sub={`of ${n(primary.n)} encounters`} />
+            <Tile label="Critical → safe misses" value={`${baseline ? baseline.cohorts.primary.critical_predicted_safe + ' → ' : ''}${primary.critical_predicted_safe}`} sub="neither model rescues these" />
+          </div>
+          <div className="px-5 pt-4 pb-2">
+            <RecallChart models={m.models} cohort="primary" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] font-mono text-[11px]">
+              <thead>
+                <tr className="eyebrow border-y border-line text-[10px]">
+                  <th className="px-5 py-2 text-left font-medium">model</th>
+                  <th className="px-3 py-2 text-right font-medium">recall (95% CI)</th>
+                  <th className="px-3 py-2 text-right font-medium">precision</th>
+                  <th className="px-3 py-2 text-right font-medium">upgrades</th>
+                  <th className="px-3 py-2 text-right font-medium">false critical</th>
+                  <th className="px-3 py-2 text-right font-medium">crit → safe</th>
+                  <th className="px-5 py-2 text-right font-medium">threshold</th>
+                </tr>
+              </thead>
+              <tbody className="text-ink-2">
+                {m.models.map((x) => (
+                  <ModelRow key={x.key} x={x} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="border-t border-line px-5 py-3 text-[11px] leading-relaxed text-ink-3">
+            Upgrade threshold {m.thresholds.upgrade_p_critical} chosen by {m.thresholds.selection}; an upgrade must be right at least {Math.round(m.thresholds.min_upgrade_precision * 100)}% of the time (at most {Math.round(1 / m.thresholds.min_upgrade_precision - 1)} false alarms per extra catch). Intervals overlap: the gain is real but modest at this sample size.
+            {shipped.ranking && <> Ranking quality of the score, critical vs rest: ROC-AUC {fmt3(shipped.ranking.roc_auc)}, PR-AUC {fmt3(shipped.ranking.pr_auc)}; ROC-AUC includes the easy encounters the rule already flags.</>}
+          </p>
+        </Panel>
+
+        <div className="flex flex-col gap-6">
+          <Panel>
+            <PanelHeader title="Probability-critical subset" note="final log₁₀ Pc ≥ −4 · separate from the operational tier" />
+            {m.probability_critical ? (
+              <div className="px-5 py-4">
+                <div className="flex items-baseline gap-3">
+                  <span className="tabular font-mono text-3xl font-light text-ink">{m.probability_critical.support}</span>
+                  <span className="text-xs text-ink-3">encounters in the cohort are critical by probability</span>
+                </div>
+                <table className="mt-3 w-full font-mono text-[11px]">
+                  <tbody>
+                    {m.probability_critical.rows.map((r) => (
+                      <tr key={r.model} className="border-t border-line text-ink-2">
+                        <td className="py-1.5">{r.model.replace(', Pc-critical subset', '')}</td>
+                        <td className="tabular py-1.5 text-right">
+                          detected {r.detected} / {m.probability_critical!.support}
+                        </td>
+                        <td className="tabular py-1.5 text-right">missed {r.missed}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-3 text-[11px] leading-relaxed text-elevated/90">{m.probability_critical.note}</p>
+              </div>
+            ) : (
+              <p className="px-5 py-8 text-center text-sm text-ink-3">Not evaluated.</p>
+            )}
+          </Panel>
+
+          <Panel>
+            <PanelHeader title="Where it fails" note="detection on the primary cohort" />
+            <table className="w-full font-mono text-[11px]">
+              <thead>
+                <tr className="eyebrow border-b border-line text-[10px]">
+                  <th className="px-5 py-2 text-left font-medium">model</th>
+                  <th className="px-2 py-2 text-right font-medium">detected</th>
+                  <th className="px-2 py-2 text-right font-medium">missed</th>
+                  <th className="px-2 py-2 text-right font-medium">as safe</th>
+                  <th className="px-5 py-2 text-right font-medium">false</th>
+                </tr>
+              </thead>
+              <tbody className="text-ink-2">
+                {m.detection.map((d) => (
+                  <tr key={d.model} className="border-b border-line last:border-0">
+                    <td className="px-5 py-1.5 text-ink">{d.model}</td>
+                    <td className="tabular px-2 py-1.5 text-right">
+                      {d.detected}/{d.support}
+                    </td>
+                    <td className="tabular px-2 py-1.5 text-right">{d.missed}</td>
+                    <td className="tabular px-2 py-1.5 text-right">{d.missed_as_safe}</td>
+                    <td className="tabular px-5 py-1.5 text-right">{d.false_alarms}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <ul className="space-y-2 border-t border-line px-5 py-4 text-xs leading-relaxed text-ink-2">
+              {m.limitations.map((l) => (
+                <li key={l} className="flex gap-2">
+                  <span className="mt-[7px] size-1 shrink-0 rounded-full bg-elevated" />
+                  {l}
+                </li>
+              ))}
+            </ul>
+            {dataSource === 'fixture' && (
+              <p className="border-t border-line px-5 py-3 text-[11px] text-ink-3">
+                The “looked safe two days out” failure is walked through on{' '}
+                <Link to="/encounter/fixture:0873" className="inline-flex items-center gap-1 text-signal">
+                  fixture:0873 <ArrowUpRight size={11} />
+                </Link>
+                , a demonstration encounter shaped after train:8732 from the failure analysis.
+              </p>
+            )}
+          </Panel>
+        </div>
+      </div>
+
+      {/* 2. Operational classification */}
+      <Panel>
+        <PanelHeader
+          title="2 · Operational classification"
+          note="confusion matrix on final-tier labels"
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex rounded-md border border-line bg-base/60 p-0.5" role="group" aria-label="Model">
+                {m.models.map((x) => (
+                  <button key={x.key} type="button" aria-pressed={matrixModel === x.key} onClick={() => setMatrixModel(x.key)} className={`rounded px-2.5 py-1 text-[11px] ${matrixModel === x.key ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'}`}>
+                    {x.role === 'baseline' ? 'rule' : x.role === 'shipped' ? 'shipped' : '+ max_risk'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex rounded-md border border-line bg-base/60 p-0.5" role="group" aria-label="Cohort">
+                {(['primary', 'all_usable'] as const).map((c) => (
+                  <button key={c} type="button" aria-pressed={cohort === c} onClick={() => setCohort(c)} className={`rounded px-2.5 py-1 text-[11px] ${cohort === c ? 'bg-raised text-ink' : 'text-ink-3 hover:text-ink'}`}>
+                    {c === 'primary' ? 'primary cohort' : 'all usable'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          }
+        />
+        <div className="grid gap-6 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <ConfusionMatrix result={matrixFor.cohorts[cohort]} />
+          <div className="text-xs leading-relaxed text-ink-2">
+            <p>
+              <span className="text-ink">{matrixFor.label}</span>, version <span className="font-mono text-[11px]">{matrixFor.model_version}</span>, on the {cohort === 'primary' ? 'primary cohort' : 'all usable encounters, including those whose final message is itself at least two days out (their label is visible in the inputs, so this cohort flatters every model)'}.
+            </p>
+            <p className="mt-3">Red cells are errors; the off-diagonal critical row is what an operator would miss. The forecast moves some true elevated encounters to critical, so elevated recall drops while critical recall rises. Accuracy is reported but never used for selection.</p>
+          </div>
+        </div>
+      </Panel>
+
+      {/* 3. Prioritisation benefit */}
+      <Panel>
+        <PanelHeader title="3 · Prioritisation benefit" note="coverage of critical encounters vs proportion of the queue reviewed · same cohort for every ranking" />
+        {m.ranking_coverage ? <RankingView rc={m.ranking_coverage} /> : (
+          <div className="px-5 py-10 text-center">
+            <p className="text-sm font-medium text-ink">Not evaluated</p>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-ink-3">
+              The queue-usefulness comparison (SG-03.3) has not been run. When it is, this panel shows the Orbit queue against risk-only, distance-first and TCA-first rankings on one predetermined cohort: coverage of imminent critical encounters and of all critical encounters at the top 10 / 20 / 30% of the queue, with the urgent subset size and any no-positive subset marked not applicable. No curve is drawn until then.
+            </p>
+          </div>
+        )}
+        <p className="border-t border-line px-5 py-3 text-[11px] leading-relaxed text-ink-3">Offline prioritisation result on a fixed cohort. Not a measurement of time saved or collisions avoided.</p>
+      </Panel>
+
+      {/* 4. Cross-validation */}
+      {m.cross_validation && (
+        <Panel>
+          <PanelHeader title="4 · Is the gain consistent?" note={`${m.cross_validation.folds}-fold cross-validation over ${n(m.cross_validation.n)} primary-cohort encounters · each scored once by a model that never saw it`} />
+          <div className="grid gap-6 px-5 py-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+            <div>
+              <table className="w-full font-mono text-[11px]">
+                <thead>
+                  <tr className="eyebrow border-b border-line text-[10px]">
+                    <th className="py-2 text-left font-medium">pooled</th>
+                    {Object.keys(m.cross_validation.pooled).map((k) => (
+                      <th key={k} className="py-2 text-right font-medium">
+                        {k === 'persistence' ? 'rule' : 'forecast'}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="text-ink-2">
+                  {([
+                    ['critical recall', 'critical_recall'],
+                    ['critical precision', 'critical_precision'],
+                    ['critical F1', 'critical_f1'],
+                    ['critical F2 (recall ×2)', 'critical_f2'],
+                    ['macro F1', 'macro_f1'],
+                    ['false critical', 'false_critical'],
+                    ['critical → safe', 'critical_missed_as_safe'],
+                  ] as const).map(([label, key]) => (
+                    <tr key={key} className="border-b border-line last:border-0">
+                      <td className="py-1.5 text-ink-3">{label}</td>
+                      {Object.values(m.cross_validation!.pooled).map((p, i) => (
+                        <td key={i} className="tabular py-1.5 text-right">
+                          {key === 'false_critical' || key === 'critical_missed_as_safe' ? p[key] : fmt3(p[key])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
+                Support: critical {n(m.cross_validation.support.Critical)}, elevated {n(m.cross_validation.support.Elevated)}, safe {n(m.cross_validation.support.Safe)}. Fold thresholds {m.cross_validation.thresholds.join(', ')} were chosen on inner folds and sit below the shipped {m.thresholds.upgrade_p_critical}, so the shipped model is slightly more conservative than this estimate.
+              </p>
+            </div>
+            <FoldChart cv={m.cross_validation} />
+          </div>
+        </Panel>
+      )}
+
+      {/* 5. Sensitivity */}
+      {m.sensitivity && (
+        <Panel>
+          <PanelHeader title="5 · Quality sensitivity" note={`frozen model ${m.sensitivity.model_version} · nothing retrained · validation, primary cohort`} />
+          <div className="grid gap-6 px-5 py-4 lg:grid-cols-2">
+            <div>
+              <h3 className="eyebrow mb-2">By time to closest approach of the latest early message · real data, grouped</h3>
+              <SensTable rows={m.sensitivity.tca_bands} />
+              <p className="mt-2 text-[11px] text-ink-3">Small critical counts make per-band recall noisy; bands with no critical encounter are marked n/a.</p>
+            </div>
+            <div>
+              <h3 className="eyebrow mb-2">Masked inputs · synthetic stress tests, not observed failures</h3>
+              <SensTable rows={m.sensitivity.masked_inputs} />
+              <p className="mt-2 text-[11px] text-ink-3">Each row removes an optional input from every validation message. Sigma is a telemetry input, not a confidence score; nothing here converts it into a model-confidence percentage.</p>
+            </div>
+          </div>
+          <div className="border-t border-line px-5 py-4">
+            <h3 className="eyebrow mb-3">Which inputs the forecast relies on · permutation drop in PR-AUC, reliance not causation</h3>
+            <ul className="space-y-1.5 font-mono text-[11px]">
+              {m.sensitivity.importance.map((f) => {
+                const max = Math.max(...m.sensitivity!.importance.map((g) => g.mean_drop_pr_auc ?? 0)) || 1
+                return (
+                  <li key={f.feature} className="grid grid-cols-[180px_minmax(0,1fr)_120px] items-center gap-3">
+                    <span className="truncate text-ink-2">{f.feature}</span>
+                    <span className="h-1.5 rounded-full bg-line">
+                      <span className="block h-full rounded-full bg-violet/70" style={{ width: `${((f.mean_drop_pr_auc ?? 0) / max) * 100}%` }} />
+                    </span>
+                    <span className="tabular text-right text-ink-3">
+                      {fmt3(f.mean_drop_pr_auc)} ± {fmt3(f.std)}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </Panel>
+      )}
+    </div>
+  )
+}
+
+function Tile({ label, value, sub, tone }: { label: string; value: string; sub: string; tone?: string }) {
+  return (
+    <div className="bg-panel px-5 py-4">
+      <div className="eyebrow">{label}</div>
+      <div className="tabular mt-1 font-mono text-2xl font-light text-ink" style={{ color: tone }}>
+        {value}
+      </div>
+      <div className="mt-0.5 font-mono text-[10px] text-ink-3">{sub}</div>
+    </div>
+  )
+}
+
+function ModelRow({ x }: { x: ModelResult }) {
+  const c = x.cohorts.primary
+  const r = c.per_tier.Critical
+  return (
+    <tr className={`border-b border-line last:border-0 ${x.role === 'shipped' ? 'bg-raised/40' : ''}`}>
+      <td className="px-5 py-2 text-ink">
+        {x.label}
+        {x.role === 'shipped' && <span className="ml-2 rounded-sm border border-signal/40 px-1 py-px text-[9px] uppercase tracking-[0.1em] text-signal">shipped</span>}
+        <div className="text-[10px] text-ink-3">{x.model_version}</div>
+      </td>
+      <td className="tabular px-3 py-2 text-right">
+        {fmt3(r.recall)} <span className="text-ink-3">({fmt3(c.critical_recall_95ci[0])}–{fmt3(c.critical_recall_95ci[1])})</span>
+      </td>
+      <td className="tabular px-3 py-2 text-right">{fmt3(r.precision)}</td>
+      <td className="tabular px-3 py-2 text-right">{x.upgrades ?? '—'}</td>
+      <td className="tabular px-3 py-2 text-right">{c.false_critical_alarms}</td>
+      <td className="tabular px-3 py-2 text-right">{c.critical_predicted_safe}</td>
+      <td className="tabular px-5 py-2 text-right">{x.threshold ?? '—'}</td>
+    </tr>
+  )
+}
+
+function FoldChart({ cv }: { cv: NonNullable<EvidenceBundle['cross_validation']> }) {
+  const keys = Object.keys(cv.per_fold)
+  const W = 520
+  const H = 150
+  const left = 90
+  const x = (v: number) => left + ((v - 0.7) / 0.3) * (W - left - 20)
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 560 }} role="img" aria-label="Critical recall per fold">
+        {[0.7, 0.8, 0.9, 1].map((t) => (
+          <g key={t}>
+            <line x1={x(t)} x2={x(t)} y1={16} y2={H - 26} stroke="rgb(148 178 230 / 0.1)" />
+            <text x={x(t)} y={H - 10} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fill="var(--color-ink-3)">
+              {t.toFixed(1)}
+            </text>
+          </g>
+        ))}
+        {keys.map((k, i) => {
+          const y = 36 + i * 46
+          const vals = cv.per_fold[k].critical_recall
+          const mean = vals.reduce((a, b) => a + b, 0) / vals.length
+          const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length)
+          const tone = k === 'persistence' ? 'var(--color-ink-2)' : 'var(--color-signal)'
+          return (
+            <g key={k}>
+              <text x={0} y={y + 4} fontSize="11" fontFamily="var(--font-sans)" fill="var(--color-ink-2)">
+                {k === 'persistence' ? 'rule' : 'forecast'}
+              </text>
+              {vals.map((v, j) => (
+                <circle key={j} cx={x(v)} cy={y} r={4} fill={tone} fillOpacity={0.55} stroke="var(--color-panel)" />
+              ))}
+              <line x1={x(mean)} x2={x(mean)} y1={y - 10} y2={y + 10} stroke={tone} strokeWidth={2} />
+              <text x={x(mean)} y={y - 14} textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fill="var(--color-ink-2)">
+                {mean.toFixed(3)} ± {sd.toFixed(3)}
+              </text>
+            </g>
+          )
+        })}
+        <text x={W - 20} y={10} textAnchor="end" fontSize="9" fontFamily="var(--font-mono)" fill="var(--color-ink-3)">
+          critical recall per fold →
+        </text>
+      </svg>
+      <p className="text-[11px] text-ink-3">One dot per fold; the bar is the mean. The per-fold ranges do not overlap, so the recall gain holds across folds. The price is precision (about 150 more false alarms across {n(cv.n)} encounters).</p>
+    </div>
+  )
+}
+
+function SensTable({ rows }: { rows: { condition: string; encounters: number; critical: number; rule_recall: number | null; model_recall: number | null; model_precision: number | null; false_critical: number; tiers_changed?: number }[] }) {
+  const hasChanged = rows.some((r) => r.tiers_changed !== undefined)
+  return (
+    <table className="w-full font-mono text-[11px]">
+      <thead>
+        <tr className="eyebrow border-b border-line text-[10px] whitespace-nowrap">
+          <th className="py-2 pr-2 text-left font-medium">condition</th>
+          <th className="px-2 py-2 text-right font-medium">n</th>
+          <th className="px-2 py-2 text-right font-medium">critical</th>
+          <th className="px-2 py-2 text-right font-medium">rule recall</th>
+          <th className="px-2 py-2 text-right font-medium">forecast recall</th>
+          <th className="px-2 py-2 text-right font-medium">precision</th>
+          <th className="px-2 py-2 text-right font-medium">false</th>
+          {hasChanged && <th className="pl-2 py-2 text-right font-medium">tiers changed</th>}
+        </tr>
+      </thead>
+      <tbody className="text-ink-2">
+        {rows.map((r) => (
+          <tr key={r.condition} className="border-b border-line last:border-0">
+            <td className="w-[36%] py-1.5 pr-2 text-ink">{r.condition}</td>
+            <td className="tabular px-2 py-1.5 text-right">{n(r.encounters)}</td>
+            <td className="tabular px-2 py-1.5 text-right">{r.critical}</td>
+            <td className="tabular px-2 py-1.5 text-right">{fmt3(r.rule_recall)}</td>
+            <td className="tabular px-2 py-1.5 text-right">{fmt3(r.model_recall)}</td>
+            <td className="tabular px-2 py-1.5 text-right">{fmt3(r.model_precision)}</td>
+            <td className="tabular px-2 py-1.5 text-right">{r.false_critical}</td>
+            {hasChanged && <td className="tabular py-1.5 pl-2 text-right">{r.tiers_changed}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/** Rendered only when SG-03.3 results exist. Same cohort for every ranking, two coverage targets. */
+function RankingView({ rc }: { rc: RankingCoverage }) {
+  const colors = ['var(--color-signal)', 'var(--color-violet)', 'var(--color-ink-2)', 'var(--color-ink-3)']
+  const series = (which: 'imminent' | 'all'): CoverageSeries[] => rc.rankings.map((r, i) => ({ key: r.key, label: r.label, color: colors[i % colors.length], points: r[which] }))
+  return (
+    <div>
+      <div className="grid gap-6 px-5 pt-4 lg:grid-cols-2">
+        <figure>
+          <figcaption className="text-xs text-ink-2">
+            Imminent critical encounters · {rc.imminent_critical_n} of {rc.urgent_subset_n} in the urgent subset
+          </figcaption>
+          <CoverageChart series={series('imminent')} />
+        </figure>
+        <figure>
+          <figcaption className="text-xs text-ink-2">All critical encounters · {rc.all_critical_n} in the cohort</figcaption>
+          <CoverageChart series={series('all')} />
+        </figure>
+      </div>
+      <table className="w-full font-mono text-[11px]">
+        <thead>
+          <tr className="eyebrow border-y border-line text-[10px]">
+            <th className="px-5 py-2 text-left font-medium">ranking</th>
+            {['10%', '20%', '30%'].map((p) => (
+              <th key={p} className="px-3 py-2 text-right font-medium">
+                imminent @ {p}
+              </th>
+            ))}
+            {['10%', '20%', '30%'].map((p) => (
+              <th key={p} className="px-3 py-2 text-right font-medium">
+                all @ {p}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="text-ink-2">
+          {rc.rankings.map((r) => (
+            <tr key={r.key} className="border-b border-line last:border-0">
+              <td className="px-5 py-1.5 text-ink">{r.label}</td>
+              {[...r.top_10_20_30_imminent, ...r.top_10_20_30_all].map((v, i) => (
+                <td key={i} className="tabular px-3 py-1.5 text-right">
+                  {v === null ? 'n/a' : `${Math.round(v * 100)}%`}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
