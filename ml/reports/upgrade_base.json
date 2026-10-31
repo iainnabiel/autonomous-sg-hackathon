@@ -1,0 +1,193 @@
+{
+  "task": "SG-05",
+  "model_version": "upgrade_base-202610310610",
+  "config": {
+    "run": "upgrade_base",
+    "model": "upgrade",
+    "seed": 42,
+    "features": "base",
+    "feature_columns": [
+      "time_to_tca",
+      "risk",
+      "miss_distance",
+      "relative_speed",
+      "relative_position_r",
+      "relative_position_t",
+      "relative_position_n",
+      "c_sigma_r",
+      "t_sigma_r",
+      "F10",
+      "AP",
+      "c_object_type",
+      "persistence_level",
+      "n_early",
+      "early_span_days",
+      "log10_miss",
+      "log10_sigma_combined",
+      "miss_over_sigma",
+      "sigma_placeholder",
+      "space_weather_missing",
+      "first_miss",
+      "min_miss",
+      "max_risk",
+      "miss_change",
+      "risk_change",
+      "last_step_miss_change",
+      "last_step_risk_change",
+      "miss_slope_per_day",
+      "risk_slope_per_day"
+    ],
+    "classifier": {
+      "categorical_features": "from_dtype",
+      "class_weight": "balanced",
+      "early_stopping": false,
+      "interaction_cst": null,
+      "l2_regularization": 1.0,
+      "learning_rate": 0.05,
+      "loss": "log_loss",
+      "max_bins": 255,
+      "max_depth": null,
+      "max_features": 1.0,
+      "max_iter": 400,
+      "max_leaf_nodes": 31,
+      "min_samples_leaf": 40,
+      "monotonic_cst": null,
+      "n_iter_no_change": 10,
+      "random_state": 42,
+      "scoring": "loss",
+      "tol": 1e-07,
+      "validation_fraction": 0.1,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "threshold_selection": {
+      "method": "5-fold out-of-fold on training partition, primary cohort",
+      "threshold": 0.12,
+      "extra_caught": 22,
+      "extra_false_alarms": 63,
+      "min_upgrade_precision": 0.25,
+      "critical_precision": 0.7163375224416517,
+      "critical_recall": 0.8599137931034483,
+      "persistence_precision": 0.798728813559322,
+      "persistence_recall": 0.8125
+    }
+  },
+  "data": {
+    "train_sha256": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+    "train_encounters": 9553,
+    "validation_encounters": 2389
+  },
+  "validation": {
+    "primary_cohort": {
+      "n": 1786,
+      "confusion_matrix": {
+        "labels": [
+          "Critical",
+          "Elevated",
+          "Safe"
+        ],
+        "rows_actual_cols_predicted": [
+          [
+            110,
+            14,
+            2
+          ],
+          [
+            44,
+            261,
+            34
+          ],
+          [
+            8,
+            45,
+            1268
+          ]
+        ]
+      },
+      "per_tier": {
+        "Critical": {
+          "precision": 0.6790123456790124,
+          "recall": 0.873015873015873,
+          "support": 126,
+          "predicted": 162
+        },
+        "Elevated": {
+          "precision": 0.815625,
+          "recall": 0.7699115044247787,
+          "support": 339,
+          "predicted": 320
+        },
+        "Safe": {
+          "precision": 0.9723926380368099,
+          "recall": 0.9598788796366389,
+          "support": 1321,
+          "predicted": 1304
+        }
+      },
+      "critical_recall_95ci": [
+        0.8174603174603174,
+        0.9285714285714286
+      ],
+      "critical_predicted_safe": 2,
+      "false_critical_alarms": 52,
+      "accuracy_not_headline": 0.9176931690929452
+    },
+    "all_usable": {
+      "n": 2389,
+      "confusion_matrix": {
+        "labels": [
+          "Critical",
+          "Elevated",
+          "Safe"
+        ],
+        "rows_actual_cols_predicted": [
+          [
+            151,
+            14,
+            2
+          ],
+          [
+            47,
+            351,
+            34
+          ],
+          [
+            8,
+            45,
+            1737
+          ]
+        ]
+      },
+      "per_tier": {
+        "Critical": {
+          "precision": 0.7330097087378641,
+          "recall": 0.9041916167664671,
+          "support": 167,
+          "predicted": 206
+        },
+        "Elevated": {
+          "precision": 0.8560975609756097,
+          "recall": 0.8125,
+          "support": 432,
+          "predicted": 410
+        },
+        "Safe": {
+          "precision": 0.9796954314720813,
+          "recall": 0.970391061452514,
+          "support": 1790,
+          "predicted": 1773
+        }
+      },
+      "critical_recall_95ci": [
+        0.8562874251497006,
+        0.9461077844311377
+      ],
+      "critical_predicted_safe": 2,
+      "false_critical_alarms": 55,
+      "accuracy_not_headline": 0.9372122226873169
+    },
+    "upgraded_encounters_primary": 30
+  },
+  "runtime_seconds": 13.5,
+  "not_evaluated": "test_data.csv has no outcomes; it is scored only for demo predictions (SG-06.3)."
+}
