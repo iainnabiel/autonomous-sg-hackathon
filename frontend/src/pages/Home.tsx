@@ -39,7 +39,7 @@ function Section({ n, title, children, id }: { n: string; title: React.ReactNode
 
 function Problem() {
   return (
-    <Section n="01 — The problem" title={<>Every close approach gets a message. Almost none of them need a manoeuvre.</>}>
+    <Section n="01 — The problem" title={<>Thousands of warnings a day. Very few need action.</>}>
       <div className="grid gap-8 md:grid-cols-2">
         <p className="text-[15px] leading-relaxed text-ink-2">
           Low Earth orbit is crowded with satellites and debris. Operators receive thousands of conjunction messages a day, each warning that two objects might pass close. Screening every one by hand takes hours, and the dangerous few are easy to miss among the routine many.
@@ -64,8 +64,8 @@ function Problem() {
 function Triage() {
   const tiers: (RiskTier | 'incomplete')[] = ['critical', 'elevated', 'safe', 'incomplete']
   const cols = [
-    { key: 'soon', label: '≤ 24 h to closest approach' },
-    { key: 'later', label: '> 24 h' },
+    { key: 'soon', label: 'Within 24 hours' },
+    { key: 'later', label: 'More than 24 hours' },
   ] as const
   const band = (tier: RiskTier | 'incomplete', col: 'soon' | 'later'): Priority => {
     if (tier === 'incomplete') return 'incomplete'
@@ -83,16 +83,18 @@ function Triage() {
   const [hover, setHover] = useState<Priority | null>(null)
 
   return (
-    <Section n="02 — What Orbit adds" title={<>Risk says how dangerous. <span className="accent text-signal">Urgency</span> says how soon.</>} id="how">
+    <Section n="02 — How alerts are ranked" title={<>Priority combines risk level and time to closest approach.</>} id="how">
       <p className="max-w-2xl text-[15px] leading-relaxed text-ink-2">
-        The organisers’ thresholds on the supplied probability and miss distance give a risk tier. A forecast model can raise that tier when the early messages look like encounters that ended critical, and never lowers it. Orbit then combines the tier with time to closest approach to place each encounter in one of four review bands. Data quality is tracked separately: an assessment that could not be completed is never allowed to look safe.
+        Each alert gets a risk level from the collision probability and miss distance. A forecast model can raise the level to Critical when early warnings resemble past critical encounters; it never lowers it. Risk level and time to closest approach then set the review priority. If required data is missing, the alert is marked incomplete and is never shown as safe.
       </p>
 
       <div className="mt-10 min-w-0 overflow-x-auto">
         <div className="grid min-w-[560px] grid-cols-[150px_1fr_1fr] gap-2">
+          <div className="flex items-end px-1 pb-1 text-[12px] font-medium text-ink">Risk level</div>
+          <div className="col-span-2 border-b border-line px-1 pb-1 text-[12px] font-medium text-ink">Time to closest approach</div>
           <div />
           {cols.map((c) => (
-            <div key={c.key} className="eyebrow px-1 pb-1 text-ink-2">
+            <div key={c.key} className="px-1 pb-1 text-[12px] text-ink-2">
               {c.label}
             </div>
           ))}
@@ -125,7 +127,7 @@ function Triage() {
         </div>
       </div>
       <p className="mt-4 font-mono text-[11px] text-ink-3">
-        Tier thresholds: critical if log₁₀ Pc ≥ −4 or miss &lt; 1 km · elevated if log₁₀ Pc ≥ −6 or miss ≤ 5 km · policy triage-policy-0.1, a prototype.
+        Critical: collision probability ≥ 1 in 10,000 or miss distance under 1 km. Elevated: probability ≥ 1 in 1,000,000 or miss distance up to 5 km. Prototype policy triage-policy-0.1.
       </p>
     </Section>
   )
@@ -142,7 +144,7 @@ const STEPS = [
 
 function Flow() {
   return (
-    <Section n="03 — From message to decision" title={<>Six steps, each one <span className="accent text-signal">inspectable.</span></>}>
+    <Section n="03 — From warning to decision" title={<>Six steps, each one recorded.</>}>
       <ol className="relative grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         <motion.span
           aria-hidden
@@ -168,7 +170,7 @@ function Flow() {
 
 function Evidence() {
   return (
-    <Section n="04 — Evidence and limits" title={<>Judged on what it finds, and on what it misses.</>}>
+    <Section n="04 — Results and limitations" title={<>What the system catches, and what it misses.</>}>
       <div className="grid gap-8 md:grid-cols-2">
         <div>
           <p className="text-[15px] leading-relaxed text-ink-2">

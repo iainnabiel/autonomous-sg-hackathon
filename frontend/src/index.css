@@ -98,6 +98,23 @@
   .hatch {
     background-image: repeating-linear-gradient(135deg, rgb(139 151 171 / 0.35) 0 2px, transparent 2px 5px);
   }
+  /* Action colours. Primary: the one main action on a surface (filled cyan). Secondary: other
+     actions (cyan outline). Chip: a filter or toggle; cyan when on, neutral outline when off. */
+  .btn {
+    @apply inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-signal text-void hover:bg-[#9aecff];
+  }
+  .btn-secondary {
+    @apply border border-signal/45 bg-signal/10 text-signal hover:bg-signal/20;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3 py-1 text-[12px] text-ink-2 transition-colors hover:border-signal/45 hover:text-ink;
+  }
+  .chip-on {
+    @apply border-signal/60 bg-signal/15 text-signal hover:text-signal;
+  }
   .hairline-t {
     border-top: 1px solid var(--color-line);
   }

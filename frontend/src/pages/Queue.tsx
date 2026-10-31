@@ -41,8 +41,8 @@ export function Queue() {
     <Page wide>
       <PageHeader
         eyebrow="Review queue"
-        title={<>Which encounter needs a human next</>}
-        lede="Ordered by review band, then by time to closest approach. Risk tier, urgency and data quality are shown as separate columns so none of them hides another."
+        title={<>Alerts to review</>}
+        lede="Sorted by priority, then by time to closest approach. Risk level, urgency and data quality are shown separately."
         aside={
           data && (
             <>
@@ -74,7 +74,7 @@ export function Queue() {
                       type="button"
                       aria-pressed={on}
                       onClick={() => toggle(tiers, t, setTiers)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${on ? 'border-line-strong bg-raised text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'}`}
+                      className={`chip ${on ? 'chip-on' : ''}`}
                     >
                       <span className={`size-1.5 rounded-full ${t === 'unassessed' ? 'hatch ring-1 ring-unknown/60' : ''}`} style={t === 'unassessed' ? undefined : { background: meta.color }} />
                       {meta.label}
@@ -101,7 +101,7 @@ export function Queue() {
         {data && data.items.length > 0 && filtered.length === 0 && (
           <p className="px-5 py-14 text-center text-sm text-ink-3">
             No encounters match these filters.{' '}
-            <button type="button" className="text-signal" onClick={() => (setBands(new Set()), setTiers(new Set()), setQ(''))}>
+            <button type="button" className="btn btn-secondary ml-2 h-8 px-2.5 text-[12px]" onClick={() => (setBands(new Set()), setTiers(new Set()), setQ(''))}>
               Clear filters
             </button>
           </p>

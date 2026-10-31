@@ -60,7 +60,7 @@ export function ReviewControls({ encounterId, observationId, review, onChange }:
                 disabled={pending !== null}
                 title={REVIEW_META[s].hint}
                 onClick={() => choose(s)}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[12px] transition-colors disabled:cursor-wait ${active ? (s === 'escalated' ? 'bg-signal text-void' : 'bg-raised text-ink') : 'text-ink-3 hover:text-ink'}`}
+                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[12px] transition-colors disabled:cursor-wait ${active ? (s === 'escalated' ? 'bg-critical text-void' : s === 'acknowledged' ? 'bg-safe text-void' : 'bg-raised text-ink') : 'text-ink-2 hover:bg-raised hover:text-ink'}`}
               >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : active ? <Check size={12} strokeWidth={3} /> : null}
                 {REVIEW_META[s].label}

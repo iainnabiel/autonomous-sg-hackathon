@@ -22,17 +22,17 @@ export function Radar() {
   return (
     <Page wide>
       <PageHeader
-        eyebrow="Relative-time radar"
-        title={<>What is coming up, and when the work piles up</>}
-        lede="Each selected encounter is placed by hours to its own closest approach. Tall bars are periods of concentrated review work; red is what cannot wait."
-        aside={radar.state.status === 'ready' && <>cohort <span className="text-ink-2">{radar.state.data.cohort}</span></>}
+        eyebrow="Radar"
+        title={<>Upcoming encounters</>}
+        lede="Encounters grouped by time to closest approach. Select a risk level to show or hide it."
+        aside={radar.state.status === 'ready' && <>data <span className="text-ink-2">{radar.state.data.cohort}</span></>}
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]">
         <Panel>
           <PanelHeader
-            title="Encounters by hours to closest approach"
-            note={total !== undefined ? `${total} shown` : undefined}
+            title="Encounters by time to closest approach"
+            note={total !== undefined ? `${total.toLocaleString()} shown` : undefined}
             action={
               <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Show tiers">
                 {TIER_KEYS.map((k) => (
@@ -41,9 +41,10 @@ export function Radar() {
                     type="button"
                     aria-pressed={visible[k]}
                     onClick={() => setVisible((v) => ({ ...v, [k]: !v[k] }))}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${visible[k] ? 'border-line-strong bg-raised text-ink' : 'border-transparent text-ink-3 line-through'}`}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${visible[k] ? '' : 'border-line bg-transparent text-ink-3 hover:text-ink-2'}`}
+                    style={visible[k] ? { borderColor: k === 'incomplete' ? 'var(--color-unknown)' : TIER_META[k].color, background: `color-mix(in srgb, ${k === 'incomplete' ? 'var(--color-unknown)' : TIER_META[k].color} 16%, transparent)`, color: k === 'incomplete' ? 'var(--color-ink)' : TIER_META[k].color } : undefined}
                   >
-                    <span className={`size-1.5 rounded-full ${k === 'incomplete' ? 'hatch ring-1 ring-unknown/60' : ''}`} style={k === 'incomplete' ? undefined : { background: TIER_META[k].color }} />
+                    <span className={`size-2 rounded-full ${k === 'incomplete' ? 'hatch ring-1 ring-unknown/60' : ''} ${visible[k] ? '' : 'opacity-40'}`} style={k === 'incomplete' ? undefined : { background: TIER_META[k].color }} />
                     {k === 'incomplete' ? 'Incomplete' : TIER_META[k].label}
                   </button>
                 ))}
@@ -54,7 +55,7 @@ export function Radar() {
           {radar.state.status === 'loading' && <LoadingBlock className="h-72" />}
           {radar.state.status === 'error' && <ErrorState title="Radar unavailable" message={radar.state.message} onRetry={radar.retry} />}
           {bins && (bins.every((b) => b.critical + b.elevated + b.safe + b.incomplete === 0) ? <EmptyState what="upcoming encounters" /> : <RadarChart bins={bins} visible={visible} />)}
-          {radar.state.status === 'ready' && <p className="border-t border-line px-5 py-3 text-[11px] leading-relaxed text-ink-3">{radar.state.data.caveat} Bins include their lower bound; the 0–24 h window includes both boundaries.</p>}
+          {radar.state.status === 'ready' && <p className="border-t border-line px-5 py-3 text-[11px] leading-relaxed text-ink-3">{radar.state.data.caveat}</p>}
         </Panel>
 
         <Panel>
