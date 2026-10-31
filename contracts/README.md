@@ -53,9 +53,11 @@ Confirmed from the organiser `data_notes` sheet: miss distance and relative posi
 
 | Use | Rule |
 | --- | --- |
-| Training and evaluation labels | Smallest `time_to_tca`, including negative values |
-| Upcoming views | Smallest nonnegative `time_to_tca` |
-| Early inference | Smallest `time_to_tca` among rows at or above 2 days |
+| Training and evaluation labels | Smallest raw `time_to_tca`, including negative values |
+| Upcoming views | Smallest nonnegative raw `time_to_tca` |
+| Early inference | Smallest raw `time_to_tca` among rows at or above 2 days |
+
+Comparisons and filtering use the raw values. `train_data.csv` has 391 negative finals. The workbook's rounded `final_time_to_tca_days` counts 389 because events 10630 and 12907 are stored as −0. Rounding is display only. Eleven train encounters have no nonnegative message, so they have no upcoming observation.
 
 Ties break by the smaller observation row index, then by source name. Exactly 2.0 days is eligible. Anything below 2 days is refused for inference and is not silently scored.
 
