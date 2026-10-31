@@ -11,7 +11,7 @@ Everyone, including the repository owner, follows this process.
 - **Do not force-push to `main`.**
 - **These rules apply to everyone, including the owner.**
 
-GitHub branch protection is currently unavailable for this private repository, so this workflow is a team agreement and is not technically enforced.
+GitHub enforces protection on `main` for everyone, including administrators. A pull request and at least one approving review are required, stale approvals are dismissed when new commits are pushed, review conversations must be resolved, and force pushes and branch deletion are blocked. No one can bypass these rules.
 
 1. Update local `main`:
 
