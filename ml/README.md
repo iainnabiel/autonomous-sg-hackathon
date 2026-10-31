@@ -33,7 +33,7 @@ Each stage is one subtask, built on its own branch and PR. Stages marked *stub* 
 
 | Order | Task | Module | Command | Output |
 | --- | --- | --- | --- | --- |
-| 1 | SG-04.1 Profile data quality | `profile_data.py` (stub) | `python -m ml.profile_data` | `reports/data_profile.md` |
+| 1 | SG-04.1 Profile data quality | `profile_data.py` | `python -m ml.profile_data` | `reports/data_profile.md` |
 | 2 | SG-04.2 Encounter-grouped split | `split.py` | `python -m ml.split` | `splits/train_validation.csv`, `splits/split_meta.json` |
 | 3 | SG-04.3 Encounter features | `features.py` | used by stages 4 to 7 | — |
 | 4 | SG-05.1 Persistence baseline | `train.py` | `python -m ml.train --model persistence` | `artifacts/<run>/`, `reports/<run>.json` |
