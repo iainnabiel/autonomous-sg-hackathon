@@ -15,6 +15,7 @@ window already includes its boundaries, so exactly 0 days and exactly 1 day
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -111,8 +112,12 @@ def assign_review(
 ) -> ReviewDecision:
     """Assign a prototype queue band. Original tiers are only read."""
 
-    if isinstance(current_time_to_tca_days, bool) or not isinstance(current_time_to_tca_days, (int, float)):
-        raise ContractError("current TCA must be a number of days")
+    if (
+        isinstance(current_time_to_tca_days, bool)
+        or not isinstance(current_time_to_tca_days, (int, float))
+        or not math.isfinite(current_time_to_tca_days)
+    ):
+        raise ContractError("current TCA must be a finite number of days")
     if forecast.status is ForecastStatus.CARRIED_FORWARD:
         if source_encounter_id is None:
             raise ContractError("a carried-forward forecast must name the source encounter")

@@ -53,6 +53,9 @@ class PolicyBoundaryTest(unittest.TestCase):
         self.assertEqual(decision.policy_version, TRIAGE_POLICY_VERSION)
         self.assertTrue(decision.prototype)
         self.assertEqual(decision.priority, PriorityBand.IMMEDIATE)
+        for value in (math.nan, math.inf, -math.inf):
+            with self.assertRaises(ContractError):
+                _review(current=Tier.CRITICAL, tca=value, forecast=_available(Tier.CRITICAL), source_event=7)
 
     def test_exact_zero_and_one_day_boundaries(self) -> None:
         at_zero = _review(current=Tier.CRITICAL, tca=0.0, forecast=_available(Tier.CRITICAL), source_event=7)
