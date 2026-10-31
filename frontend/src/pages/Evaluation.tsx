@@ -21,7 +21,7 @@ export function Evaluation() {
       <PageHeader
         eyebrow="Evaluation"
         title={<>Three separate claims, each with its denominator</>}
-        lede="How well the model estimates probability, how well the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than simpler rankings. Reported on a fixed held-out cohort."
+        lede="How many critical endings the forecast catches beyond the persistence rule and at what false-alarm cost, how the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than simpler rankings. Reported on a fixed held-out cohort."
         aside={live ? 'source: /metrics' : 'layout preview'}
       />
 
@@ -58,16 +58,16 @@ export function Evaluation() {
                   <thead>
                     <tr className="eyebrow border-b border-line">
                       <th className="px-5 py-2 text-left font-medium">model</th>
-                      <th className="px-3 py-2 text-right font-medium">MAE log₁₀ Pc</th>
                       <th className="px-3 py-2 text-right font-medium">critical recall</th>
+                      <th className="px-3 py-2 text-right font-medium">false critical</th>
                       <th className="px-5 py-2 text-right font-medium">n</th>
                     </tr>
                   </thead>
                   <tbody className="text-ink-2">
                     {[
-                      ['constant baseline', '—', '—', '—'],
-                      ['telemetry only', '—', '—', '—'],
-                      ['+ max_risk_estimate', '—', '—', '—'],
+                      ['persistence rule', '—', '—', '—'],
+                      ['upgrade, base features', '—', '—', '—'],
+                      ['upgrade + max_risk_estimate', '—', '—', '—'],
                     ].map(([m, a, b, n]) => (
                       <tr key={m} className="border-b border-line last:border-0">
                         <td className="px-5 py-2 text-ink">{m}</td>

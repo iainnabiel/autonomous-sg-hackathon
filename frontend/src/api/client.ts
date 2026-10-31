@@ -1,5 +1,5 @@
-import type { DataSource, EncounterDetail, QueueResponse, RadarResponse } from './types'
-import { fixtureEncounter, fixtureQueue, fixtureRadar } from './fixtures'
+import type { DataSource, EncounterDetail, QueueResponse, RadarResponse, ReviewState, ReviewStatus } from './types'
+import { fixtureEncounter, fixtureQueue, fixtureRadar, fixtureSetReview } from './fixtures'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '')
 
@@ -16,10 +16,10 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<T> {
   let res: Response
   try {
-    res = await fetch(`${API_URL}${path}`, { signal, headers: { Accept: 'application/json' } })
+    res = await fetch(`${API_URL}${path}`, { ...init, signal, headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } })
   } catch (err) {
     if (signal?.aborted) throw err
     throw new ApiError(`Could not reach ${API_URL}`)
@@ -28,21 +28,23 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await res.json()) as T
 }
 
+const getJson = <T,>(path: string, signal?: AbortSignal) => request<T>(path, {}, signal)
+
 // `?demo=loading|error|empty` previews UI states while on fixtures.
 function demoState() {
   return new URLSearchParams(window.location.search).get('demo')
 }
 
-async function fixture<T>(produce: () => T): Promise<T> {
+async function fixture<T>(produce: () => T, delay = 350): Promise<T> {
   const demo = demoState()
-  await new Promise((r) => setTimeout(r, demo === 'loading' ? 1e9 : 350))
+  await new Promise((r) => setTimeout(r, demo === 'loading' ? 1e9 : delay))
   if (demo === 'error') throw new ApiError('Simulated error (fixture mode)')
   return produce()
 }
 
 export function fetchQueue(signal?: AbortSignal): Promise<QueueResponse> {
   if (dataSource === 'api') return getJson<QueueResponse>('/queue', signal)
-  return fixture(() => (demoState() === 'empty' ? { ...fixtureQueue, items: [] } : fixtureQueue))
+  return fixture(() => (demoState() === 'empty' ? { ...fixtureQueue(), items: [] } : fixtureQueue()))
 }
 
 export function fetchEncounter(id: string, signal?: AbortSignal): Promise<EncounterDetail> {
@@ -57,4 +59,15 @@ export function fetchEncounter(id: string, signal?: AbortSignal): Promise<Encoun
 export function fetchRadar(signal?: AbortSignal): Promise<RadarResponse> {
   if (dataSource === 'api') return getJson<RadarResponse>('/radar', signal)
   return fixture(fixtureRadar)
+}
+
+/**
+ * Record a human review status against an observation (SG-02.8). The backend decides
+ * renewal; the response is the stored state. Status never changes risk tier or band.
+ */
+export function setReview(encounterId: string, status: ReviewStatus, observationId: string): Promise<ReviewState> {
+  if (dataSource === 'api') {
+    return request<ReviewState>(`/encounters/${encodeURIComponent(encounterId)}/review`, { method: 'POST', body: JSON.stringify({ status, observation_id: observationId }) })
+  }
+  return fixture(() => fixtureSetReview(encounterId, status, observationId), 250)
 }
