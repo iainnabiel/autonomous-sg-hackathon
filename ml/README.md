@@ -62,6 +62,22 @@ $P -m ml.evaluate                                  # full score panel + 5-fold c
 $P -m ml.sensitivity                               # SG-06.5 TCA bands, masked inputs, importance
 ```
 
+## Demo API for the dashboard (interim)
+
+`python -m ml.demo_api` serves real encounters and the frozen model in the dashboard's provisional API shape, so the dashboard shows real data instead of fixtures until the SG-02 backend lands.
+
+```bash
+.venv/bin/python -m ml.demo_api --metrics frontend/src/evidence/validation.json   # port 8000, held-out validation
+# in another terminal, from frontend/:
+VITE_API_URL=http://localhost:8000 npm run dev                                      # http://localhost:5173
+```
+
+- `--cohort validation` (default): the 2,389 held-out validation encounters, never used to fit the model. Histories include messages inside 2 days, so the current observation is each encounter's last message (historical replay).
+- `--cohort test`: the 2,167 `test_data.csv` encounters. Every message is at least 2 days out, so nothing is inside 24 hours.
+- `/metrics` serves the JSON given with `--metrics` (the dashboard's bundled copy of `ml/reports`); without it the dashboard shows "not evaluated".
+- The queue applies the upgrade to each encounter's current rule tier (dashboard semantics), so its upgrade count differs from the evaluated model's. Evaluated numbers are in `ml/reports`.
+- Review state is in memory and lost on restart. Standard-library server; not for production.
+
 ## Identifiers
 
 - `row_id = "<source>:<row index>"`, e.g. `train:1234`. This is the 0-based data row in the CSV.
