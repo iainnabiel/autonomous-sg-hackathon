@@ -52,12 +52,12 @@ export const OPERATORS: Operator[] = [
   },
   {
     id: 'op-horizon',
-    name: 'Julian Okafor',
+    name: 'Julian Rascol',
     short_name: 'Julian',
-    initials: 'JO',
-    organisation: 'Horizon Orbital Services',
+    initials: 'JR',
+    organisation: 'Airbus Tech Hub',
     title: 'Constellation Operations Lead',
-    handle: 'j.okafor',
+    handle: 'j.rascol',
     constellations: ['LATTICE'],
   },
 ]
