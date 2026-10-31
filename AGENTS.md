@@ -8,7 +8,7 @@ https://github.com/iainnabiel/autonomous-sg-hackathon
 PROJECT CONTEXT
 - Task plan, owners, and acceptance criteria (SG-01 to SG-09): docs/TASK_PLAN.md
 - Challenge brief: Problem_Statement/PROBLEM_STATEMENT.md and Problem_Statement/Requirements.md
-- Raw data lives in Datasets/ locally and is gitignored. Never commit it.
+- Raw data lives locally in `Datasets/` or `data/` and is gitignored, including `data.zip`, `data(1).zip`, and `challenge1_event_labels.xlsx`. Never commit it. Large generated model artifacts are gitignored too.
 - Work only on tasks owned by the current user unless told otherwise.
 
 Follow this Git workflow for every task. These rules apply to everyone, including the repository owner.

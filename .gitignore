@@ -54,3 +54,29 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Raw challenge data. Local copies only; never commit.
+# Filename rules are specific so other .zip and .xlsx assets can still be committed.
+Datasets/
+data/
+data.zip
+data(1).zip
+challenge1_event_labels.xlsx
+
+# Large generated model and training artifacts
+*.pkl
+*.pickle
+*.joblib
+*.onnx
+*.pt
+*.pth
+*.h5
+*.keras
+*.safetensors
+*.ckpt
+*.npy
+*.npz
+ml/artifacts/
+ml/checkpoints/
+wandb/
+mlruns/

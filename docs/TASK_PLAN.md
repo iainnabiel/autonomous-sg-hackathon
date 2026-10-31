@@ -38,12 +38,12 @@ These development labels are separate from the operator queue priorities (Immedi
 
 **Done when:** contracts define prediction, classification, priority, quality flags, and evidence; all teammates use the same definitions.
 
-| ID | Task | Description | Acceptance criteria |
-| --- | --- | --- | --- |
-| SG-01.1 | Project structure and ownership | Maintain `backend/`, `evaluation/`, `ml/`, `frontend/`, and `contracts/`. | Ownership and startup commands documented; datasets, secrets, and large generated artifacts excluded from Git. |
-| SG-01.2 | Extend shared contracts | Specify observation identity, prediction, risk tier, queue priority, receipt, and history responses. | Include source-qualified encounter ID, stable observation ID, units, model version, policy version, quality flags, and reason codes; unavailable values use explicit null/status fields. |
-| SG-01.3 | Define data and snapshot conventions | Document unit assumptions, encounter-grouped splitting, selected-observation policy, and historical-view limits. | Units remain labelled assumptions until confirmed; select smallest nonnegative TCA per encounter with deterministic ties; split membership is fixed; no claim of a shared live calendar timeline. |
-| SG-01.4 · New | Define triage policy | Establish transparent queue rules separate from risk classification. | **Immediate:** critical within 24h. **High:** other critical, or elevated within 24h. **Scheduled:** other elevated. **Routine:** safe with adequate inputs. Policy is versioned and labelled a prototype; incomplete assessments have a separate review route. |
+| ID | Task | Description | Acceptance criteria | Status |
+| --- | --- | --- | --- | --- |
+| SG-01.1 | Project structure and ownership | Maintain `backend/`, `evaluation/`, `ml/`, `frontend/`, and `contracts/`. | Ownership and startup commands documented; datasets, secrets, and large generated artifacts excluded from Git. | In review |
+| SG-01.2 | Extend shared contracts | Specify observation identity, prediction, risk tier, queue priority, receipt, and history responses. | Include source-qualified encounter ID, stable observation ID, units, model version, policy version, quality flags, and reason codes; unavailable values use explicit null/status fields. | Not started |
+| SG-01.3 | Define data and snapshot conventions | Document unit assumptions, encounter-grouped splitting, selected-observation policy, and historical-view limits. | Units remain labelled assumptions until confirmed; select smallest nonnegative TCA per encounter with deterministic ties; split membership is fixed; no claim of a shared live calendar timeline. | Not started |
+| SG-01.4 · New | Define triage policy | Establish transparent queue rules separate from risk classification. | **Immediate:** critical within 24h. **High:** other critical, or elevated within 24h. **Scheduled:** other elevated. **Routine:** safe with adequate inputs. Policy is versioned and labelled a prototype; incomplete assessments have a separate review route. | Not started |
 
 ### SG-02 · Core — Explainable review queue
 
