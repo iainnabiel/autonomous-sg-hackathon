@@ -37,6 +37,8 @@ export interface Operator {
   /** Login handle shown on the demo account picker. */
   handle: string
   constellations: string[]
+  /** Profile colour for the avatar and the selected card on the sign-in page. */
+  accent: string
 }
 
 export const OPERATORS: Operator[] = [
@@ -49,6 +51,7 @@ export const OPERATORS: Operator[] = [
     title: 'Senior Flight Dynamics Officer',
     handle: 'w.lim',
     constellations: ['MERIDIAN', 'KESTREL'],
+    accent: '#ff5f6d',
   },
   {
     id: 'op-horizon',
@@ -59,6 +62,29 @@ export const OPERATORS: Operator[] = [
     title: 'Constellation Operations Lead',
     handle: 'j.rascol',
     constellations: ['LATTICE'],
+    accent: '#6fe3ff',
+  },
+  {
+    id: 'op-nus',
+    name: 'Aanya Mathur',
+    short_name: 'Aanya',
+    initials: 'AM',
+    organisation: 'NUS',
+    title: 'Satellite Mission Engineer',
+    handle: 'a.mathur',
+    constellations: ['AURORA'],
+    accent: '#a99cff',
+  },
+  {
+    id: 'op-ntu',
+    name: 'Marcus Tan',
+    short_name: 'Marcus',
+    initials: 'MT',
+    organisation: 'NTU Satellite Research Centre',
+    title: 'Ground Segment Operations Engineer',
+    handle: 'm.tan',
+    constellations: ['HALCYON'],
+    accent: '#46d1a0',
   },
 ]
 
@@ -98,13 +124,18 @@ export const LIVE_ENCOUNTER: Record<string, string | null> = {
   'fixture:1371': 'train:10817', // safe, rocket body
   'fixture:1504': null, // no real counterpart in the validation cohort
 }
+// Satellites added after the fixtures were written (AURORA, HALCYON) name real encounters
+// directly; they have no fixture, so they show no alerts when the dashboard runs on fixtures.
 function liveId(id: string): string | null {
+  if (!id.startsWith('fixture:')) return LIVE ? id : null
   return LIVE ? LIVE_ENCOUNTER[id] ?? null : id
 }
 
 // MERIDIAN: six near-equatorial imaging satellites at 560 km, 10°.
 // KESTREL: two sun-synchronous radar satellites at 520 km, 97.6°.
 // LATTICE: eight communications satellites at 540 km, 53° in two planes.
+// AURORA: four sun-synchronous research smallsats at 500 km, 97.4°.
+// HALCYON: three polar Earth-observation smallsats at 610 km, 87°.
 export const SATELLITES: Satellite[] = [
   sat('MER-1', 'MERIDIAN-1', 'MERIDIAN', 'op-ostin', 'payload', 'nominal', { altitude_km: 560, inclination_deg: 10, raan_deg: 20, phase_deg: 0 }, ['fixture:0412'], 'Optical imaging'),
   sat('MER-2', 'MERIDIAN-2', 'MERIDIAN', 'op-ostin', 'payload', 'nominal', { altitude_km: 560, inclination_deg: 10, raan_deg: 20, phase_deg: 60 }, ['fixture:0935'], 'Optical imaging'),
@@ -123,6 +154,15 @@ export const SATELLITES: Satellite[] = [
   sat('LAT-B2', 'LATTICE-B2', 'LATTICE', 'op-horizon', 'payload', 'nominal', { altitude_km: 540, inclination_deg: 53, raan_deg: 230, phase_deg: 135 }, ['fixture:0244'], 'Ka-band relay'),
   sat('LAT-B3', 'LATTICE-B3', 'LATTICE', 'op-horizon', 'payload', 'manoeuvre planned', { altitude_km: 540, inclination_deg: 53, raan_deg: 230, phase_deg: 225 }, ['fixture:0873'], 'Ka-band relay'),
   sat('LAT-B4', 'LATTICE-B4', 'LATTICE', 'op-horizon', 'payload', 'nominal', { altitude_km: 540, inclination_deg: 53, raan_deg: 230, phase_deg: 315 }, ['fixture:1371'], 'Ka-band relay'),
+
+  sat('AUR-1', 'AURORA-1', 'AURORA', 'op-nus', 'payload', 'nominal', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 0 }, ['train:9524'], 'Hyperspectral imaging'),
+  sat('AUR-2', 'AURORA-2', 'AURORA', 'op-nus', 'payload', 'nominal', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 90 }, ['train:5169'], 'Hyperspectral imaging'),
+  sat('AUR-3', 'AURORA-3', 'AURORA', 'op-nus', 'payload', 'manoeuvre planned', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 180 }, ['train:8591'], 'Technology demonstration'),
+  sat('AUR-4', 'AURORA-4', 'AURORA', 'op-nus', 'payload', 'nominal', { altitude_km: 500, inclination_deg: 97.4, raan_deg: 300, phase_deg: 270 }, ['train:12527'], 'Technology demonstration'),
+
+  sat('HAL-1', 'HALCYON-1', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 30 }, ['train:2563'], 'Earth observation'),
+  sat('HAL-2', 'HALCYON-2', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 150 }, ['train:12992'], 'Earth observation'),
+  sat('HAL-3', 'HALCYON-3', 'HALCYON', 'op-ntu', 'payload', 'nominal', { altitude_km: 610, inclination_deg: 87, raan_deg: 200, phase_deg: 270 }, ['train:3249'], 'Automatic identification system relay'),
 
   // Context objects: nobody in the demo operates these. They are the "other side" of the encounters.
   sat('OBJ-30412', 'Fragment 30412', null, null, 'debris', null, { altitude_km: 565, inclination_deg: 71, raan_deg: 310, phase_deg: 12 }, [], 'Fragmentation debris'),

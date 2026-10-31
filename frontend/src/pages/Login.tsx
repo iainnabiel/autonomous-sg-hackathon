@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
@@ -73,10 +73,16 @@ export function Login() {
                 return (
                   <label
                     key={o.id}
-                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors ${on ? 'border-signal/50 bg-signal-dim/60' : 'border-line hover:border-line-strong'}`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors ${on ? '' : 'border-line hover:border-line-strong'}`}
+                    style={on ? { borderColor: `${o.accent}80`, background: `${o.accent}1a` } : undefined}
                   >
                     <input type="radio" name="operator" value={o.id} checked={on} onChange={() => setOperatorId(o.id)} className="sr-only" />
-                    <span className={`grid size-9 shrink-0 place-items-center rounded-full font-mono text-[11px] ${on ? 'bg-signal text-void' : 'bg-raised text-ink-2'}`}>{o.initials}</span>
+                    <span
+                      className={`grid size-9 shrink-0 place-items-center rounded-full font-mono text-[11px] ${on ? 'text-void' : 'bg-raised'}`}
+                      style={on ? { background: o.accent } : { color: o.accent }}
+                    >
+                      {o.initials}
+                    </span>
                     <span className="min-w-0">
                       <span className="block text-sm text-ink">{o.name}</span>
                       <span className="block truncate text-xs text-ink-3">{o.organisation}</span>
@@ -109,6 +115,13 @@ export function Login() {
             {!entering && <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />}
           </button>
 
+          <p className="mt-5 text-center text-sm text-ink-3">
+            New operator?{' '}
+            <Link to="/signup" className="text-signal underline-offset-4 hover:underline">
+              Create an account with SSO
+            </Link>
+          </p>
+
           <p className="mt-6 text-[11px] leading-relaxed text-ink-3">
             Session is local to this browser tab. The accounts, satellites and encounters shown after sign-in are demonstration data; nothing here is production-grade security.
           </p>
@@ -119,7 +132,7 @@ export function Login() {
 }
 
 /** Slowly turning orbital rings behind the hero copy. Pure SVG + CSS; no WebGL on the login page. */
-function OrbitalBackdrop() {
+export function OrbitalBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="bg-grid absolute inset-0" />

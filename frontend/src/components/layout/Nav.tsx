@@ -88,7 +88,7 @@ export function Nav() {
             <kbd className="ml-1 rounded-sm border border-line px-1 font-mono text-[10px]">⌘K</kbd>
           </button>
           <SourceBadge />
-          {operator && <OperatorMenu name={operator.name} initials={operator.initials} organisation={operator.organisation} onSignOut={() => (signOut(), navigate('/login'))} />}
+          {operator && <OperatorMenu name={operator.name} initials={operator.initials} accent={operator.accent} organisation={operator.organisation} onSignOut={() => (signOut(), navigate('/login'))} />}
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -134,7 +134,7 @@ export function Nav() {
   )
 }
 
-function OperatorMenu({ name, initials, organisation, onSignOut }: { name: string; initials: string; organisation: string; onSignOut: () => void }) {
+function OperatorMenu({ name, initials, accent, organisation, onSignOut }: { name: string; initials: string; accent: string; organisation: string; onSignOut: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -154,7 +154,7 @@ function OperatorMenu({ name, initials, organisation, onSignOut }: { name: strin
         aria-haspopup="menu"
         className="flex h-8 items-center gap-2 rounded-full border border-line pr-3 pl-1 text-xs text-ink-2 transition-colors hover:border-line-strong"
       >
-        <span className="grid size-6 place-items-center rounded-full bg-signal font-mono text-[10px] text-void">{initials}</span>
+        <span className="grid size-6 place-items-center rounded-full font-mono text-[10px] text-void" style={{ background: accent }}>{initials}</span>
         <span className="hidden lg:inline">{name}</span>
       </button>
       <AnimatePresence>
