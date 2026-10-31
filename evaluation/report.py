@@ -152,6 +152,57 @@ def _coverage(labels: dict[object, LabelRecord], cohorts: dict[str, Cohort]) -> 
     }
 
 
+def _bundle_model_version(bundle: Path) -> tuple[str | None, str]:
+    """Read ``model_version`` from a joblib bundle when joblib is installed (ML environment)."""
+
+    try:
+        import joblib  # optional: only present in the ML environment
+    except ImportError:
+        return None, "unverified: joblib not installed"
+    version = joblib.load(bundle).get("model_version")
+    return version, "read from bundle"
+
+
+def _artifacts(runs: Sequence[RunInputs], ml_runs: dict, model_bundle: Path | None, train_sha: str,
+               notes: list[str]) -> dict:
+    """Identify the exact ML run and files scored. Equal metrics do not make different runs interchangeable."""
+
+    records = {}
+    for run in runs:
+        ml_run = ml_runs[run.key]
+        used_train = (ml_run.report.get("data") or {}).get("train_sha256")
+        if used_train and used_train != train_sha:
+            raise ValueError(f"{run.report_json} was produced from a different train_data.csv")
+        record = {
+            "model_version": ml_run.model_version,
+            "report_json": str(run.report_json),
+            "report_json_sha256": sources.file_sha256(run.report_json),
+            "predictions_csv_sha256": sources.file_sha256(run.predictions_csv),
+            "ml_train_sha256": used_train,
+        }
+        committed = sources.ML_REPORTS / f"{run.key}.json"
+        if committed.exists() and committed.resolve() != Path(run.report_json).resolve():
+            committed_version = json.loads(committed.read_text(encoding="utf-8")).get("model_version")
+            record["repository_report_model_version"] = committed_version
+            if committed_version != ml_run.model_version:
+                notes.append(f"{run.key}: this report scores run {ml_run.model_version}; the repository's committed "
+                             f"ml/reports/{run.key}.json is run {committed_version}. Matching metric values do not "
+                             "make the two model artifacts interchangeable.")
+        if run.role == "shipped":
+            if model_bundle is not None and model_bundle.exists():
+                version, check = _bundle_model_version(model_bundle)
+                if version is not None and version != ml_run.model_version:
+                    raise ValueError(f"{model_bundle} is {version}, but {run.report_json} is {ml_run.model_version}")
+                record.update(model_bundle=str(model_bundle), model_bundle_sha256=sources.file_sha256(model_bundle),
+                              bundle_model_version=version, bundle_version_check=check)
+            else:
+                record.update(model_bundle=None, model_bundle_sha256=None, bundle_model_version=None,
+                              bundle_version_check="bundle not available; model artifact not identified")
+                notes.append("The upgrade model bundle was not available, so its artifact is not identified.")
+        records[run.key] = record
+    return records
+
+
 def build_report(
     *,
     train_csv: Path = sources.TRAIN_CSV,
@@ -195,6 +246,7 @@ def build_report(
         for cohort_id in REPORTED_COHORTS:
             joined[run.key][cohort_id], filtered[run.key][cohort_id] = _join_run(rows, labels, cohorts[cohort_id], run)
 
+    artifacts = _artifacts(runs, ml_runs, model_bundle, checksums["train_data.csv"], notes)
     baseline_run = next(run for run in runs if run.role == "baseline")
     shipped_run = next(run for run in runs if run.role == "shipped")
     shipped = ml_runs[shipped_run.key]
@@ -262,8 +314,8 @@ def build_report(
             "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
             "bundled_on": None,
             "generated_by": "python -m evaluation report",
-            "note": f"Generated {datetime.now(timezone.utc):%Y-%m-%dT%H:%MZ} from local ML validation predictions. "
-                    "Nothing was fitted or tuned by SG-03.",
+            "note": f"Generated {datetime.now(timezone.utc):%Y-%m-%dT%H:%MZ} from ML run {shipped.model_version} "
+                    "(see sg03.artifacts for the exact files). Nothing was fitted or tuned by SG-03.",
         },
         "dataset": {
             "train_sha256": checksums["train_data.csv"],
@@ -274,7 +326,7 @@ def build_report(
                                  "all_usable also includes final_is_early encounters.",
         },
         "model_version": shipped.model_version,
-        "model_sha256": sources.file_sha256(model_bundle) if model_bundle else None,
+        "model_sha256": artifacts[shipped_run.key]["model_bundle_sha256"],
         "policy_version": POLICY_VERSION,
         "thresholds": {
             "upgrade_p_critical": shipped.threshold,
@@ -292,6 +344,7 @@ def build_report(
         "sg03": {
             "schema_version": SCHEMA_VERSION,
             "inputs_sha256": checksums,
+            "artifacts": artifacts,
             "notes": notes,
             "cross_checks": {
                 "organiser_labels_vs_raw_messages": "passed",

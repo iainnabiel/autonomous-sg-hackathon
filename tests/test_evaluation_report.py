@@ -45,6 +45,14 @@ def _write_csv(path: Path, header: list[str], rows: list) -> None:
         writer.writerows(rows)
 
 
+def _joblib_available() -> bool:
+    try:
+        import joblib  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 class ReportTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -135,6 +143,28 @@ class ReportTest(unittest.TestCase):
         with self.assertRaises(EvaluationInputError) as caught:
             self.build(runs=self.runs(short))
         self.assertEqual(caught.exception.ids("missing_prediction"), ("train:5",))
+
+    def test_artifact_identity_is_recorded(self) -> None:
+        payload = self.build()
+        artifacts = payload["sg03"]["artifacts"]
+        self.assertEqual(artifacts["upgrade_base"]["model_version"], "upgrade_base-fixture")
+        self.assertEqual(len(artifacts["upgrade_base"]["predictions_csv_sha256"]), 64)
+        self.assertIsNone(payload["model_sha256"])  # no bundle in the fixture: not identified, never guessed
+        self.assertIn("not identified", artifacts["upgrade_base"]["bundle_version_check"])
+        bundle = Path(self.tmp.name) / "model.joblib"
+        bundle.write_bytes(b"synthetic bundle bytes")
+        with_bundle = self.build(model_bundle=bundle) if not _joblib_available() else None
+        if with_bundle is not None:
+            self.assertEqual(with_bundle["model_sha256"], hashlib.sha256(b"synthetic bundle bytes").hexdigest())
+            self.assertEqual(with_bundle["sg03"]["artifacts"]["upgrade_base"]["bundle_version_check"],
+                             "unverified: joblib not installed")
+
+    def test_prediction_run_on_other_training_data_fails(self) -> None:
+        report = json.loads(self.upgrade_json.read_text())
+        report["data"] = {"train_sha256": "0" * 64}
+        self.upgrade_json.write_text(json.dumps(report))
+        with self.assertRaises(ValueError):
+            self.build()
 
     def test_different_training_file_fails(self) -> None:
         self.meta.write_text(json.dumps({"files_sha256": {"train_data.csv": "0" * 64}}))
