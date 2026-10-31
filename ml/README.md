@@ -56,6 +56,7 @@ $P -m ml.train --model persistence
 $P -m ml.train --model upgrade --features base
 $P -m ml.train --model upgrade --features base_mre
 $P -m ml.inference --source test && $P -m ml.failures && $P -m ml.model_card
+$P -m ml.evaluate                                  # full score panel + 5-fold cross-validation (~1 min)
 ```
 
 ## Identifiers
