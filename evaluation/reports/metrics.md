@@ -42,5 +42,5 @@ Full train dataset: 13154 encounters, 11942 assessable, 1212 unable to assess (f
 - The upgrade threshold was chosen by ML (D7) on 5-fold out-of-fold predictions from the training partition, then applied to a model refitted on the whole partition. The 25% upgrade-precision budget therefore does not transfer exactly, and it was checked on the same scores it was tuned on.
 - The D7 budget is a trade-off constraint. Persistence has one operating point, so the two models are not compared at an equal false-alarm level.
 - p_critical is an uncalibrated, class-weighted score for 'final tier is Critical'. It is not a collision probability (Pc) and is shown only as ranking quality.
-- Critical support is small (126 primary validation encounters), so intervals are wide.
 - Encounters with no eligible early message are unable to assess. They are excluded from tier metrics and counted separately, never as Safe.
+- Critical support is small (126 primary validation encounters), so intervals are wide.

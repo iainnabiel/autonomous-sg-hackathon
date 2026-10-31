@@ -97,3 +97,28 @@ def message_tca_by_observation(messages: list[RawMessage]) -> dict[str, float]:
     """Raw ``time_to_tca`` per observation ID, to fill a prediction's source TCA."""
 
     return {f"{m.source}:{m.row_index}": m.time_to_tca_days for m in messages}
+
+
+def export_organiser_labels(workbook: Path, out: Path = LABELS_CSV, sheet: str = "train_event_labels") -> int:
+    """Write the organisers' label sheet as CSV in the ``ml/README.md`` layout. Needs openpyxl.
+
+    Row 1 is the sheet's note, row 2 is blank, then the header and data rows,
+    with values as stored in the workbook. Returns the number of data rows.
+    """
+
+    from openpyxl import load_workbook  # optional: only needed to export the workbook
+
+    rows = list(load_workbook(require(workbook), read_only=True, data_only=True)[sheet].iter_rows(values_only=True))
+    start = next(i for i, row in enumerate(rows) if row and row[0] == "event_id")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with open(out, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([rows[0][0] if start > 0 and rows[0] else ""])
+        writer.writerow([])
+        writer.writerow(rows[start])
+        for row in rows[start + 1:]:
+            if row and row[0] is not None:
+                writer.writerow(["" if value is None else value for value in row])
+                written += 1
+    return written
