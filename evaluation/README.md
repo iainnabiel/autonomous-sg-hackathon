@@ -38,3 +38,7 @@ What the report does:
 - **Nothing is fitted or tuned here.** The threshold comes from `ml/reports/upgrade_base.json`.
 
 The top level of `metrics.json` follows the dashboard's provisional `MetricsResponse` (`frontend/src/api/types.ts`). SG-03 detail is under `sg03`. SG-03.3 ranking coverage is in `ranking_coverage` (the dashboard shape) and `sg03.ranking`. It covers the proposed queue (`contracts.triage`, no `p_critical`), the same queue with persistence, and supplied-risk, distance and TCA baselines, all ranked at each encounter's early-warning snapshot. Positives are final-tier Critical encounters.
+
+## Serving `/metrics` (SG-03.4)
+
+`evaluation.served.metrics_response()` returns `evaluation/reports/metrics.json` unchanged. If the file has not been generated it returns `{"status": "not_evaluated", ...}`. A malformed file, or one with the wrong schema version, raises `MetricsFileError`. It never returns fixtures or recomputes anything. The backend `/metrics` route (SG-02 API) should return this value. Until that exists, `python -m ml.demo_api --metrics evaluation/reports/metrics.json` (#28) serves the same file.
