@@ -41,8 +41,9 @@ URGENT_HOURS = tca_hours(UPCOMING_URGENCY_DAYS)
 HANDLING = {
     "sigma_placeholder": "A radial sigma held the 6.378136e7 placeholder and was treated as missing. "
     "Sigma is supplied position uncertainty, not model confidence.",
-    "space_weather_missing": "F10 and/or AP were not supplied. The model handles missing values natively; nothing was imputed.",
-    "single_early_message": "Only one message at least 2 days out, so trend features are undefined.",
+    "optional_input_missing": "An optional input (for example F10, AP or a sigma) was not supplied. "
+    "The model handles missing values natively; nothing was imputed.",
+    "single_early_observation": "Only one message at least 2 days out, so trend features are undefined.",
     "missing_required_input": "A required input (log10 Pc, miss distance, TCA or event id) is missing or invalid. "
     "No tier is given unless the other input alone is Critical; never treated as Safe.",
     "inference_unavailable": "The model forecast is unavailable, so the band uses the current rule tier only "

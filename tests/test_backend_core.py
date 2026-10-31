@@ -28,11 +28,12 @@ from backend.message_validation import validate_message
 from backend.radar import bin_index, radar
 from backend.receipts import build_receipt
 from backend.service import build_from_checks
+from backend.tiers import rule_tier
 from contracts.errors import ContractError
-from contracts.forecast import ForecastStatus
+from contracts.forecast import ForecastStatus, ReasonCode
 from contracts.ids import EncounterId, ObservationId
 from contracts.schemas import PriorityBand
-from contracts.tiers import Tier
+from contracts.tiers import Tier, current_rule_tier
 from contracts.triage import PriorityReason
 
 MOCK = ModelInfo(model_version="MOCK-synthetic", model_sha256=None, threshold=0.12, feature_set="base")
@@ -174,11 +175,43 @@ class ForecastAdapterTest(unittest.TestCase):
         self.assertIs(result.forecast.status, ForecastStatus.UNAVAILABLE)
         self.assertIn("missing or invalid", result.problem)
 
+    def test_upgrade_carries_the_shared_reason_code(self) -> None:
+        d = Data()
+        src = d.add(1, 3.0)
+        result = forecasts_for(d, [record("test:1", src, p=0.5, upgraded=True)])[E1]
+        self.assertEqual(result.forecast.reason_codes, (ReasonCode.MODEL_UPGRADE_TO_CRITICAL,))
+        plain = forecasts_for(d, [record("test:1", src)])[E1]
+        self.assertEqual(plain.forecast.reason_codes, ())
+
+    def test_model_flags_map_to_shared_quality_flags(self) -> None:
+        d = Data()
+        src = d.add(1, 3.0)
+        flags = ["sigma_placeholder", "space_weather_missing", "single_early_message"]
+        result = forecasts_for(d, [record("test:1", src, quality_flags=flags)])[E1]
+        self.assertEqual(result.model_quality_flags,
+                         ("sigma_placeholder", "optional_input_missing", "single_early_observation"))
+        unknown = forecasts_for(d, [record("test:1", src, quality_flags=["made_up"])])[E1]
+        self.assertIs(unknown.forecast.status, ForecastStatus.UNAVAILABLE)
+
     def test_exactly_two_days_is_the_eligible_source(self) -> None:
         d = Data()
         d.add(1, math.nextafter(2.0, -math.inf))
         src = d.add(1, 2.0)
         self.assertEqual(d.grouped().early_sources()[E1], ObservationId.parse(src))
+
+
+class SharedRuleParityTest(unittest.TestCase):
+    """SG-02.2's classify_risk and contracts.tiers.current_rule_tier must agree."""
+
+    def test_same_tier_on_every_edge_input(self) -> None:
+        values_pc = (None, math.nan, math.inf, True, 0.5, 0.0, -3.0, -4.0, math.nextafter(-4.0, -math.inf),
+                     -5.0, -6.0, math.nextafter(-6.0, -math.inf), -30.0)
+        values_m = (None, math.nan, -math.inf, -1.0, 0.0, 500.0, math.nextafter(1000.0, 0), 1000.0, 3000.0,
+                    5000.0, math.nextafter(5000.0, math.inf), 50000.0)
+        for pc in values_pc:
+            for miss in values_m:
+                ours, _ = rule_tier(pc, miss)
+                self.assertIs(ours, current_rule_tier(pc, miss), (pc, miss))
 
 
 class AssessmentTest(unittest.TestCase):

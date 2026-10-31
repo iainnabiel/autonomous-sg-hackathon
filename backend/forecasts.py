@@ -27,15 +27,23 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from backend.message_validation import MessageCheck
 from backend.tiers import SEVERITY, rule_tier
 from contracts.errors import ContractError
-from contracts.forecast import Forecast, available_forecast, unable_to_assess, unavailable_forecast
+from contracts.forecast import Forecast, ReasonCode, available_forecast, unable_to_assess, unavailable_forecast
 from contracts.ids import EncounterId, ObservationId
+from contracts.schemas import QualityFlag
 from contracts.tiers import Tier
+
+# ml.inference emits these names; the shared QualityFlag spells two of them differently.
+ML_QUALITY_FLAGS = {
+    "sigma_placeholder": QualityFlag.SIGMA_PLACEHOLDER,
+    "space_weather_missing": QualityFlag.OPTIONAL_INPUT_MISSING,
+    "single_early_message": QualityFlag.SINGLE_EARLY_OBSERVATION,
+}
 
 
 @dataclass(frozen=True)
@@ -87,6 +95,16 @@ def _flag_list(value: object) -> tuple[str, ...]:
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return ()
     return tuple(str(item) for item in value)
+
+
+def _quality_flags(value: object) -> tuple[str, ...] | None:
+    """Shared QualityFlag values, or None if the model emitted an unknown flag."""
+    flags = []
+    for item in _flag_list(value):
+        if item not in ML_QUALITY_FLAGS:
+            return None
+        flags.append(ML_QUALITY_FLAGS[item].value)
+    return tuple(dict.fromkeys(flags))
 
 
 def _check_record(
@@ -143,6 +161,10 @@ def _check_record(
     if upgraded != should_upgrade or (predicted is Tier.CRITICAL) != (upgraded or persistence is Tier.CRITICAL):
         return _unavailable(encounter_id, "upgrade flag, predicted tier and threshold are inconsistent")
 
+    quality = _quality_flags(record.get("quality_flags"))
+    if quality is None:
+        return _unavailable(encounter_id, "prediction has a quality flag outside the shared vocabulary")
+
     forecast = available_forecast(
         tier=predicted,
         source_observation_id=source,
@@ -150,13 +172,15 @@ def _check_record(
         model_version=model.model_version,
         p_critical=p_critical,
     )
+    if upgraded:
+        forecast = replace(forecast, reason_codes=(ReasonCode.MODEL_UPGRADE_TO_CRITICAL,))
     return ForecastResult(
         encounter_id,
         forecast,
         persistence,
         upgraded,
         _flag_list(record.get("upgrade_reasons")) if upgraded else (),
-        _flag_list(record.get("quality_flags")),
+        quality,
         None,
     )
 

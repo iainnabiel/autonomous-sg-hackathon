@@ -57,14 +57,13 @@ def model_status(assessment: Assessment) -> str:
 
 def message_flags(check: MessageCheck) -> list[str]:
     flags = []
+    required = {"risk", "miss_distance", "time_to_tca", "event_id"}
     if any(i.kind is IssueKind.PLACEHOLDER for i in check.issues):
-        flags.append("sigma_placeholder")
-    if any(i.field in ("F10", "AP") and i.kind is IssueKind.MISSING for i in check.issues):
-        flags.append("space_weather_missing")
-    if check.missing_fields or check.invalid_fields:
-        required = {"risk", "miss_distance", "time_to_tca", "event_id"}
-        if required & (set(check.missing_fields) | set(check.invalid_fields)):
-            flags.append(QualityFlag.MISSING_REQUIRED_INPUT.value)
+        flags.append(QualityFlag.SIGMA_PLACEHOLDER.value)
+    if any(i.field not in required and i.kind is IssueKind.MISSING for i in check.issues):
+        flags.append(QualityFlag.OPTIONAL_INPUT_MISSING.value)
+    if required & (set(check.missing_fields) | set(check.invalid_fields)):
+        flags.append(QualityFlag.MISSING_REQUIRED_INPUT.value)
     return flags
 
 

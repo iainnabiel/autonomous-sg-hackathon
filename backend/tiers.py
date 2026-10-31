@@ -5,10 +5,11 @@
 The values are identical, so conversion is by value. Remove this module once
 SG-02.2 imports the shared type.
 
-The current rule tier comes from SG-02.2's ``classify_risk``, not
-``contracts.tiers.current_rule_tier``: the agreed policy gives no tier when an
-input is invalid unless the valid input alone is Critical, and PR #18's
-function currently returns Elevated in that case.
+The current rule tier comes from SG-02.2's ``classify_risk`` because it also
+returns the triggered rules and invalid inputs that receipts need.
+``contracts.tiers.current_rule_tier`` now applies the same agreed policy (no
+tier for a lone Elevated input); ``tests.test_backend_core`` checks the two
+agree.
 """
 
 from __future__ import annotations
