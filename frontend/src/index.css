@@ -29,6 +29,7 @@
 
   --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
 
+  --animate-spin-slow: spin 60s linear infinite;
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
   @keyframes shimmer {
