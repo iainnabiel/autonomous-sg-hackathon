@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+/* Design tokens. Colour carries meaning only: tier colours are reserved for risk tier. */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --color-void: #05070d;
+  --color-base: #080c15;
+  --color-panel: #0b111d;
+  --color-raised: #101828;
+  --color-line: rgb(148 178 230 / 0.09);
+  --color-line-strong: rgb(148 178 230 / 0.18);
+
+  --color-ink: #e7edf7;
+  --color-ink-2: #a3b0c4;
+  --color-ink-3: #66748b;
+
+  --color-signal: #6fe3ff;
+  --color-signal-dim: rgb(111 227 255 / 0.12);
+  --color-violet: #a99cff;
+
+  --color-critical: #ff5f6d;
+  --color-elevated: #f2b34a;
+  --color-safe: #46d1a0;
+  --color-unknown: #8b97ab;
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to { background-position: 400px 0; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-void);
+  }
+  body {
+    @apply font-sans text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: rgb(111 227 255 / 0.25);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Faint coordinate grid behind the workspace, fading out toward the bottom. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(148 178 230 / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(148 178 230 / 0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgb(148 178 230 / 0.04) 0%, rgb(148 178 230 / 0.1) 50%, rgb(148 178 230 / 0.04) 100%);
+    background-size: 800px 100%;
+    animation: var(--animate-shimmer);
+  }
+  /* Diagonal hatch marks assessments that are not complete — visually never "safe". */
+  .hatch {
+    background-image: repeating-linear-gradient(135deg, rgb(139 151 171 / 0.35) 0 2px, transparent 2px 5px);
+  }
+}
