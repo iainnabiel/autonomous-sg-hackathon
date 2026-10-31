@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowDown, ArrowUpRight, Crosshair, ListOrdered, Radar as RadarIcon, RotateCcw, X } from 'lucide-react'
+import { ArrowDown, ArrowUpRight, Crosshair, ListOrdered, MousePointerClick, Radar as RadarIcon, RotateCcw, X } from 'lucide-react'
 import { fetchQueue } from '../api/client'
 import { useResource } from '../api/useResource'
 import type { QueueItem } from '../api/types'
@@ -229,8 +229,33 @@ export function OrbitalOverview() {
           )}
           <span className="ml-1 font-mono text-[11px] text-ink-3">{visible.length} shown</span>
         </div>
-        <p className="mt-2 font-mono text-[10px] text-ink-3">Satellite positions are illustrative, not real orbits. Drag to rotate, scroll to zoom, select a satellite to see its alerts.</p>
+        <p className="mt-2 font-mono text-[10px] text-ink-3">Satellite positions are illustrative, not real orbits. Drag to rotate, scroll to zoom.</p>
       </motion.div>
+
+      {/* Selection hint — right, where the satellite panel opens. Hidden while a satellite is selected. */}
+      <AnimatePresence>
+        {!selected && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.4, ease, delay: 0.3 }}
+            className="pointer-events-none absolute top-4 right-4 z-10 w-[min(260px,calc(100%-32px))] rounded-xl border border-signal/40 bg-void/75 p-4 backdrop-blur-xl lg:top-8 lg:right-8"
+          >
+            <p className="flex items-center gap-2 text-sm font-medium text-ink">
+              <MousePointerClick size={16} className="shrink-0 text-signal" />
+              Select a satellite on the globe
+            </p>
+            <p className="mt-1 text-xs text-ink-3">Click or tap any dot to see its details and alerts.</p>
+            <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-ink-2">
+              <GlobeKey color="#6fe3ff" label="Your satellites" />
+              <GlobeKey color="#ff5f6d" label="Act now" />
+              <GlobeKey color="#f2b34a" label="Needs review" />
+              <GlobeKey color="#8b97ab" label="Other objects" />
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Contextual sidebar — right. */}
       <AnimatePresence>
@@ -252,6 +277,15 @@ export function OrbitalOverview() {
         How alerts are ranked <ArrowDown size={11} />
       </a>
     </section>
+  )
+}
+
+function GlobeKey({ color, label }: { color: string; label: string }) {
+  return (
+    <li className="flex items-center gap-1.5">
+      <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />
+      {label}
+    </li>
   )
 }
 

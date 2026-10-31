@@ -124,7 +124,7 @@ function Scene({ satellites, ownIds, markers, links, selectedId, onSelect, compa
         positions={positions.current}
         targets={[
           { id: selectedId, el: selLabel, text: selectedId ? labelText(byId.get(selectedId), markers.get(selectedId) ?? null) : '' },
-          { id: hoverId && hoverId !== selectedId ? hoverId : null, el: hovLabel, text: hoverId ? labelText(byId.get(hoverId), markers.get(hoverId) ?? null) : '' },
+          { id: hoverId && hoverId !== selectedId ? hoverId : null, el: hovLabel, text: hoverId ? `${labelText(byId.get(hoverId), markers.get(hoverId) ?? null)} · click for details` : '' },
         ]}
       />
       <Stars />
@@ -305,7 +305,13 @@ function SatelliteMark({ s, own, marker, selected, position, onSelect, onHover }
   const { camera } = useThree()
 
   useFrame(({ clock }) => {
-    if (group.current) group.current.position.copy(position)
+    if (group.current) {
+      group.current.position.copy(position)
+      // Grow under the pointer so the marks read as clickable.
+      const k = hover ? 1.7 : 1
+      const cur = group.current.scale.x
+      group.current.scale.setScalar(cur + (k - cur) * 0.25)
+    }
     if (ring.current) {
       ring.current.lookAt(camera.position)
       const t = clock.getElapsedTime()
