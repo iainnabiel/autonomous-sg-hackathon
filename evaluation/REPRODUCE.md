@@ -118,8 +118,9 @@ The committed `metrics.json` scores local run `upgrade_base-202610310747` (bundl
 
 **Verified by the SG-03 agent on 31 Oct 2026**, from a fresh clone of `feature/sg-03-5-reproducibility` with main merged, on macOS and Python 3.14.2:
 
-- steps 1–4;
+- steps 1–5;
 - the committed report reproduced exactly, with `same_model_artifact` false as expected;
-- the backend served the file identically.
+- `python -m backend.api` (SG-02, #35) served the file identically, with HTTP 200;
+- the dashboard on main, run with `VITE_API_URL` pointing at that backend and captured with headless Chrome, rendered the Evaluation page from the live `/metrics`: the metrics report, detection, the confusion matrix and ranking coverage. The probability-critical panel shows "Not evaluated", as expected.
 
 **Still required:** an independent teammate rerun on their own machine with their own copy of the organiser files. That is the SG-03.5 acceptance check. The agent's run is not a substitute.
