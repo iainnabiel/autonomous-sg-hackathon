@@ -86,7 +86,7 @@ Version `triage-prototype-sg-01.4`. This orders review attention. It is not a ce
 
 The prioritisation tier is the more severe of the current rule tier and `forecast_final_tier`. Neither stored tier is overwritten. `p_critical` and the model’s upgrade threshold are not inputs. Urgency uses the current observation’s TCA. Exactly 0 days and exactly 1 day are inside the one-day bands. Negative current TCA is omitted from the upcoming queue.
 
-A known Elevated tier with an unavailable forecast stays High at exactly 1 day and Scheduled just beyond 1 day. The reason `forecast_not_treated_as_safe` says the missing forecast was not treated as Safe. Known Critical evidence stays Immediate or High. Safe, or no current tier, with an unavailable forecast is Incomplete. Routine still requires current Safe and a valid Safe forecast. Missing risk and distance stay unrated; they are not turned into Elevated.
+A known Elevated tier with an unavailable forecast stays High at exactly 1 day and Scheduled just beyond 1 day. The reason `forecast_not_treated_as_safe` says the missing forecast was not treated as Safe. Known Critical evidence stays Immediate or High. Safe, or no current tier, with an unavailable forecast is Incomplete. Routine still requires current Safe and a valid Safe forecast. Missing risk and distance stay unrated; they are not turned into Elevated. An unrated current message keeps the `incomplete_review` reason even when a forecast tier sets its band. Each encounter appears at most once in the queue, and a forecast's source observation must come from the same file as the encounter.
 
 | Current tier | Forecast tier | Current TCA | Priority | Why |
 | --- | --- | --- | --- | --- |
