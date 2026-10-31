@@ -173,6 +173,9 @@ class RecordFailureTest(Fixture):
         self.assertFails("status_eligibility_mismatch",
                          lambda: self.validate([dict(unable_row(3), persistence_tier="Safe")],
                                                cohort=self.cohorts[UNABLE_TO_ASSESS]), ("train:3",))
+        self.assertFails("status_eligibility_mismatch",
+                         lambda: self.validate([dict(unable_row(3), upgraded=False)],
+                                               cohort=self.cohorts[UNABLE_TO_ASSESS]), ("train:3",))
 
     def test_unable_to_assess_must_mean_no_eligible_message(self) -> None:
         cohort = self.cohorts[UNABLE_TO_ASSESS]
