@@ -192,6 +192,39 @@ class SelectionTest(unittest.TestCase):
         self.assertIsNone(select_early_observation([_obs(9, 1.9)]))
         self.assertIsNone(select_upcoming_observation([_obs(9, -1.0)]))
 
+    def test_tiny_negative_raw_tca_zero_and_no_upcoming_observation(self) -> None:
+        """Events 10630 and 12907 are negative in the raw file and −0 in the workbook."""
+
+        event_10630 = -1.8449074074074083e-05
+        event_12907 = -2.2962962962962965e-05
+        self.assertLess(event_10630, 0.0)
+        self.assertLess(event_12907, 0.0)
+        self.assertNotEqual(event_10630, -0.0)
+        self.assertFalse((-0.0) < 0.0)
+
+        labelled = [
+            _obs(1, event_10630, event=10630),
+            _obs(2, 3.0, event=10630),
+        ]
+        self.assertEqual(select_label_observation(labelled).time_to_tca_days, event_10630)
+        self.assertEqual(select_upcoming_observation(labelled).time_to_tca_days, 3.0)
+
+        other = [
+            _obs(3, 1.0, event=12907),
+            _obs(4, event_12907, event=12907),
+        ]
+        self.assertEqual(select_label_observation(other).time_to_tca_days, event_12907)
+        self.assertEqual(select_upcoming_observation(other).time_to_tca_days, 1.0)
+
+        with_zero = [_obs(5, event_12907, event=8), _obs(6, 0.0, event=8)]
+        self.assertEqual(select_label_observation(with_zero).time_to_tca_days, event_12907)
+        self.assertEqual(select_upcoming_observation(with_zero).time_to_tca_days, 0.0)
+        self.assertEqual(select_upcoming_observation(with_zero).observation_id.row_index, 6)
+
+        no_upcoming = [_obs(7, event_10630, event=9), _obs(8, event_12907, event=9)]
+        self.assertEqual(select_label_observation(no_upcoming).time_to_tca_days, event_12907)
+        self.assertIsNone(select_upcoming_observation(no_upcoming))
+
 
 class FixtureTest(unittest.TestCase):
     def test_examples_are_labelled_synthetic_and_cover_forecast_states(self) -> None:
