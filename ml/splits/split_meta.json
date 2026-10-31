@@ -1,0 +1,39 @@
+{
+  "task": "SG-04.2",
+  "seed": 42,
+  "validation_fraction": 0.2,
+  "stratified_by": "final_tier",
+  "cohort": "usable train encounters (at least one message with time_to_tca >= 2 days)",
+  "files_sha256": {
+    "train_data.csv": "ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6",
+    "train_event_labels.csv": "7d0d4183fc96b9503e25a5f73615bf3e151999d309082d0eb59b395e288cc2c1"
+  },
+  "support": {
+    "train": {
+      "encounters": 9553,
+      "all_usable": {
+        "Critical": 667,
+        "Elevated": 1730,
+        "Safe": 7156
+      },
+      "primary_cohort": {
+        "Critical": 464,
+        "Elevated": 1345,
+        "Safe": 5297
+      }
+    },
+    "validation": {
+      "encounters": 2389,
+      "all_usable": {
+        "Critical": 167,
+        "Elevated": 432,
+        "Safe": 1790
+      },
+      "primary_cohort": {
+        "Critical": 126,
+        "Elevated": 339,
+        "Safe": 1321
+      }
+    }
+  }
+}
