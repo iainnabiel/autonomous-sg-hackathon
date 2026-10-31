@@ -20,6 +20,18 @@ All-usable validation cohort: at its fixed threshold the upgrade model catches 1
 | Persistence (rule on latest early message) | 2389 | 0.850 | 0.821 | 31 | 0.014 | 2 |
 | Critical-upgrade model (shipped) | 2389 | 0.904 | 0.733 | 55 | 0.025 | 2 |
 
+## Triage ranking (primary)
+
+Coverage of final-tier Critical encounters when reviewing the top 10/20/30% of the cohort.
+
+| Ranking | Top 10% | Top 20% | Top 30% |
+| --- | --- | --- | --- |
+| Proposed queue (SG-01.4 policy, model forecast) | 0.873 | 0.937 | 0.984 |
+| Same policy, persistence forecast | 0.802 | 0.881 | 0.984 |
+| Supplied log10 Pc, highest first | 0.302 | 0.397 | 0.548 |
+| Supplied miss distance, smallest first | 0.913 | 0.976 | 0.976 |
+| Time to closest approach, soonest first | 0.079 | 0.167 | 0.254 |
+
 ## Coverage
 
 Full train dataset: 13154 encounters, 11942 assessable, 1212 unable to assess (final tiers {'Critical': 74, 'Elevated': 241, 'Safe': 897}). The validation partition has 0 unable to assess.

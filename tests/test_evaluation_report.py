@@ -106,7 +106,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(payload["sg03"]["coverage"]["validation_partition"]["unable_to_assess"], 0)
         self.assertEqual(payload["sg03"]["predictions_outside_cohort_filtered"]["upgrade_base"]["primary"], 1)
         self.assertEqual(payload["test"]["state"], "unavailable")
-        self.assertIsNone(payload["ranking_coverage"])
+        self.assertEqual(payload["ranking_coverage"]["all_critical_n"], 2)
+        self.assertEqual(payload["ranking_coverage"]["urgent_subset_n"], 0)
         self.assertEqual(payload["thresholds"]["upgrade_p_critical"], 0.5)
         self.assertTrue(payload["sg03"]["notes"])  # the label file checksum is not in split_meta
 
