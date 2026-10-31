@@ -123,6 +123,16 @@ def _join_run(rows, labels, cohort: Cohort, run: RunInputs) -> tuple[tuple[Joine
     return join(labels, validated, cohort), len(records) - len(inside)
 
 
+def _without_curves(result: dict) -> dict:
+    """Coverage curves are kept once, in the dashboard's ranking_coverage (primary cohort)."""
+
+    trimmed = dict(result, rankings=[])
+    for item in result["rankings"]:
+        coverage = {key: value for key, value in item["final_critical"].items() if key != "curve"}
+        trimmed["rankings"].append(dict(item, final_critical=coverage))
+    return trimmed
+
+
 def _coverage(labels: dict[object, LabelRecord], cohorts: dict[str, Cohort]) -> dict:
     unable = cohorts[UNABLE_TO_ASSESS]
     return {
@@ -237,7 +247,7 @@ def build_report(
         comparison[cohort_id] = result
 
     snapshot = {f"{m.source}:{m.row_index}": m for m in messages}
-    ranking = {
+    triage = {
         cohort_id: rank_and_cover(joined[shipped_run.key][cohort_id], joined[baseline_run.key][cohort_id],
                                   snapshot, cohort_id)
         for cohort_id in REPORTED_COHORTS
@@ -275,7 +285,7 @@ def build_report(
         "detection": detection_rows,
         "probability_critical": None,
         "cross_validation": None,
-        "ranking_coverage": dashboard_view(ranking[PRIMARY]),
+        "ranking_coverage": dashboard_view(triage[PRIMARY]),
         "sensitivity": None,
         "test": {"state": test_metric.state.value, "reason": test_metric.reason},
         "limitations": list(LIMITATIONS),
@@ -301,7 +311,7 @@ def build_report(
             },
             "predictions_outside_cohort_filtered": filtered,
             "coverage": _coverage(labels, cohorts),
-            "ranking": ranking,
+            "ranking": {cohort_id: _without_curves(result) for cohort_id, result in triage.items()},
             "comparison": comparison,
             "methods": {
                 "confusion_matrix": "rows actual, columns predicted, order Critical, Elevated, Safe",
