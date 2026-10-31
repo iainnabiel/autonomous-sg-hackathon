@@ -104,7 +104,7 @@ Validation partition, primary cohort: 1,786 encounters, 126 Critical. Each thres
 | --- | --- | --- | --- | --- | --- |
 | Persistence (SG-05.1) | 0.802 (0.730–0.865) | 0.765 | — | 31 | 2 |
 | **Upgrade, `base` (SG-05.2), shipped** | **0.873 (0.817–0.929)** | 0.679 | 30 | 52 | 2 |
-| Upgrade, `base_mre` (SG-05.3) | 0.833 (0.762–0.897) | 0.734 | 11 | 38 | 2 |
+| Upgrade, `base_mre` (SG-05.3) | 0.833 (0.762–0.897) | 0.750 | 8 | 35 | 2 |
 
 **What this shows:**
 - The shipped model catches **9 more of 126** Critical encounters than the rule, at the cost of 21 more false alarms. That's 30% upgrade precision, within the D7 budget.

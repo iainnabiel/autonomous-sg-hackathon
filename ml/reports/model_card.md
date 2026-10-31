@@ -14,7 +14,7 @@ Validation partition, primary cohort (1,786 encounters, 126 Critical). Accuracy 
 |:------------------------------------|:---------------------------|---------------------:|------------------:|--------------:|-----------------:|------------------:|
 | Persistence (SG-05.1)               | 0.802 (0.730–0.865)        |                0.765 |             0.82  |          0.96 |               31 |                 2 |
 | Upgrade, base (SG-05.2) **shipped** | 0.873 (0.817–0.929)        |                0.679 |             0.77  |          0.96 |               52 |                 2 |
-| Upgrade, base_mre (SG-05.3)         | 0.833 (0.762–0.897)        |                0.734 |             0.799 |          0.96 |               38 |                 2 |
+| Upgrade, base_mre (SG-05.3)         | 0.833 (0.762–0.897)        |                0.75  |             0.808 |          0.96 |               35 |                 2 |
 
 **Selected: upgrade, base.** It has the highest Critical recall. The cost is 21 more false Critical alarms than persistence, within the D7 budget of at most 3 false alarms per extra catch. `base_mre` adds `max_risk_estimate` but catches fewer Critical encounters, so the shipped model does not depend on it (D8). Confidence intervals overlap: the gain is real but modest. Upgrades also move some true Elevated encounters to Critical, so Elevated recall drops (0.82 → 0.77).
 
@@ -22,8 +22,8 @@ Validation partition, primary cohort (1,786 encounters, 126 Critical). Accuracy 
 
 | Field | Value |
 | --- | --- |
-| Version | `upgrade_base-202610310647` |
-| Bundle SHA-256 | `7b63c5609b0a83881bccede5a8976b506f295f7fb4377096ce1940f2ae3887fc` |
+| Version | `upgrade_base-202610310654` |
+| Bundle SHA-256 | `fed11fa765b15c4d1245618087aa6f4030eae9c2bdd95f81b1125318eea64c83` |
 | Training data SHA-256 | `ba47ce80580d5d6ff523ddc1d724901dbdfb3a5afdc5e755f0ca2bcefe6e4eb6` |
 | Upgrade threshold | 0.12 |
 | Features | 29 (`base` set in `ml/features.py`) |
