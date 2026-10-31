@@ -54,3 +54,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# ML generated artifacts (models, prediction files); share via Drive with checksums
+ml/artifacts/
