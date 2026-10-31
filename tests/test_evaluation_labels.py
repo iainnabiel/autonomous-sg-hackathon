@@ -15,7 +15,7 @@ from evaluation.labels import OrganiserLabel, RawMessage, SplitRow, derive_label
 
 ROOT = Path(__file__).resolve().parents[1]
 E1_MODULES = ("errors", "labels", "cohorts", "predictions", "join", "metrics", "compare", "adapters",
-              "sources", "report", "ranking", "__main__")
+              "sources", "report", "ranking", "served", "__main__")
 
 SAFE = dict(risk=-9.0, miss=20000.0)
 ELEVATED = dict(risk=-9.0, miss=3000.0)
