@@ -2,7 +2,7 @@
 
 Decisions for the model (SG-04 to SG-06) that follow from the organisers' new data notes. Several of them change shared definitions in SG-01.3, SG-02.3 and SG-03, so the backend and dashboard need to follow them too.
 
-Decided by Khaleil, 31 Oct 2026. Iain to confirm the items marked **shared**.
+Decided by Khaleil, 31 Oct 2026. The **shared** items (D1, D4, D5) were confirmed by Iain on 31 Oct 2026.
 
 ## The task
 
@@ -28,13 +28,15 @@ Data files:
 
 ## Decisions
 
-### D1. Early-message `risk` is an allowed input (shared)
+### D1. Early-message `risk` is an allowed input (shared, confirmed)
 
 `risk` (log10 Pc) in a message sent ≥ 2 days out is information an operator already has at prediction time, so it isn't the answer. The model may use it.
 
-The final message's risk, and every `final_*` column, remain forbidden. `ml/data.check_features` enforces this.
+- **Allowed:** the ordinary `risk` column of any eligible message, meaning raw `time_to_tca` ≥ 2 days.
+- **Excluded from features:** every message with raw `time_to_tca` < 2 days, and every `final_*` label field. `ml/data.early_messages` applies the cutoff and `ml/data.check_features` rejects the workbook's `final_*` label columns.
+- **Eligible final message:** if an encounter's final message is itself ≥ 2 days out, its ordinary `risk` is an eligible input like any other. That encounter stays in the all-usable cohort; D4 excludes it from the primary cohort because its label is visible in the inputs.
 
-**Changes:** SG-02.3 currently says "risk excluded from inference inputs". It becomes "only `risk` from messages with `time_to_tca` ≥ 2 days may be an input".
+**Changes:** Only `risk` from messages with raw `time_to_tca` ≥ 2 days may be an inference input. Later-message `risk` and all `final_*` fields stay excluded. SG-02.3 does not exclude every `risk` value.
 
 ### D2. Headline metric
 
@@ -53,21 +55,25 @@ Accuracy and macro-F1 are never the headline.
 
 Receipts can then say which rule set the base tier and why the model escalated it.
 
-### D4. Evaluation cohort (shared)
+### D4. Evaluation cohort (shared, confirmed)
 
 - Use only usable encounters, meaning at least one early message: 11,942 of 13,154.
 - **Primary cohort:** excludes the 3,050 `final_is_early` encounters, whose final message is itself ≥ 2 days out, so their label is visible in the inputs. That leaves 8,892 encounters.
 - Also report results including them, labelled as such.
 - Encounters with no early message get the status **"unable to assess"**, never Safe.
 
-**Changes:** SG-03 evaluation must use the same cohort definition so numbers match.
+These counts are the same whether computed from raw `train_data.csv` or from the workbook's rounded values, because no encounter's raw final time is within rounding distance of 2 days.
 
-### D5. What "final" means (shared)
+**Changes:** SG-03 evaluation must use the same cohort definition so numbers match. The cohort is per encounter, so SG-03 joins predictions to labels by source-qualified encounter ID. SG-02.3 must return "unable to assess" for encounters with no early message.
 
-- **Training and evaluation labels:** the organisers' definition. The final message is the one with the smallest `time_to_tca`, **including negative values**. 389 encounters have a negative final time.
-- **Dashboard "upcoming" views:** keep SG-01.3's smallest **non-negative** `time_to_tca`.
+### D5. What "final" means (shared, confirmed)
 
-**Changes:** SG-01.3 must say which definition applies where.
+- **Training and evaluation labels:** the organisers' definition. The final message is the one with the smallest raw `time_to_tca`, **including negative values**. 391 encounters have a negative raw final time.
+- **Dashboard "upcoming" views:** keep SG-01.3's smallest **non-negative** raw `time_to_tca`. 11 train encounters have no non-negative message, so they have no upcoming observation.
+
+**Raw values, not rounded ones.** The workbook's `final_*` columns are rounded to 4 decimal places. Events 10630 and 12907 have raw final times of about −1.6 s and −2.0 s, which display as −0.0, so the workbook shows 389 negative finals instead of 391. Selection, the 2-day cutoff, the negative-time test and `final_is_early` use raw `train_data.csv` values. Rounding is for display only.
+
+**Changes:** SG-01.3 must say which definition applies where, and that both use raw `time_to_tca`.
 
 ### D7. Upgrade budget: at most 3 false alarms per extra Critical caught
 
