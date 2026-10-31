@@ -55,8 +55,28 @@ Desktop.ini
 *.swo
 *~
 
-# ML generated artifacts (models, prediction files); share via Drive with checksums
-ml/artifacts/
-
-# Raw datasets (shared via Drive, never commit)
+# Raw challenge data. Local copies only; never commit.
+# Filename rules are specific so other .zip and .xlsx assets can still be committed.
 Datasets/
+data/
+data.zip
+data(1).zip
+challenge1_event_labels.xlsx
+
+# Large generated model and training artifacts. Share models via Drive with checksums.
+*.pkl
+*.pickle
+*.joblib
+*.onnx
+*.pt
+*.pth
+*.h5
+*.keras
+*.safetensors
+*.ckpt
+*.npy
+*.npz
+ml/artifacts/
+ml/checkpoints/
+wandb/
+mlruns/
