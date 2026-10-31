@@ -20,12 +20,13 @@ from pathlib import Path
 
 # Run identity and generation details: compared separately from metric values.
 IDENTITY_PATHS = (
-    ("provenance",),
     ("model_version",),
-    ("model_sha256",),
-    ("sg03", "artifacts"),
-    ("sg03", "notes"),
-    ("sg03", "inputs_sha256", "train_event_labels.csv"),  # a local export of the organiser sheet may differ in bytes
+    ("evidence", "provenance"),
+    ("evidence", "model_version"),
+    ("evidence", "model_sha256"),
+    ("evidence", "sg03", "artifacts"),
+    ("evidence", "sg03", "notes"),
+    ("evidence", "sg03", "inputs_sha256", "train_event_labels.csv"),  # a local export may differ in bytes
 )
 
 
@@ -36,8 +37,11 @@ def _strip(payload: dict) -> dict:
         for key in path[:-1]:
             node = node.get(key, {})
         node.pop(path[-1], None)
-    for model in data.get("models", []):
+    for model in (data.get("evidence") or {}).get("models", []):
         model.pop("model_version", None)
+    for metric in data.get("metrics", []):
+        if metric.get("name", "").startswith("critical_recall:"):
+            metric["reason"] = metric["reason"].rsplit(";", 1)[0]  # drops the run's model_version
     return data
 
 
@@ -58,17 +62,18 @@ def _differences(a, b, path: str = "") -> list[str]:
 
 
 def _identity(payload: dict) -> dict:
-    artifacts = payload.get("sg03", {}).get("artifacts", {})
+    evidence = payload.get("evidence") or {}
+    artifacts = evidence.get("sg03", {}).get("artifacts", {})
     return {
         "model_version": payload.get("model_version"),
-        "model_sha256": payload.get("model_sha256"),
+        "model_sha256": evidence.get("model_sha256"),
         "runs": {key: record.get("model_version") for key, record in artifacts.items()},
     }
 
 
 def compare_reports(expected: dict, actual: dict) -> dict:
     differences = _differences(_strip(expected), _strip(actual))
-    same_run = _identity(expected) == _identity(actual) and expected.get("model_sha256") is not None
+    same_run = _identity(expected) == _identity(actual) and _identity(expected)["model_sha256"] is not None
     return {
         "metrics_identical": not differences,
         "differences": differences[:50],

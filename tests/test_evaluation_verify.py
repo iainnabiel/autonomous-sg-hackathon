@@ -14,13 +14,19 @@ from evaluation.verify import compare_reports, compare_served
 
 def payload(version: str = "upgrade_base-1", sha: str | None = "aa", recall: float = 0.873) -> dict:
     return {
-        "status": "evaluated",
-        "provenance": {"commit": "x", "note": "generated now"},
+        "cohort_label": "validation primary",
         "model_version": version,
-        "model_sha256": sha,
-        "models": [{"key": "upgrade_base", "model_version": version, "cohorts": {"primary": {"recall": recall}}}],
-        "sg03": {"artifacts": {"upgrade_base": {"model_version": version}}, "notes": [],
-                 "inputs_sha256": {"train_data.csv": "t", "train_event_labels.csv": "local"}},
+        "metrics": [{"name": "critical_recall:upgrade_base", "value": recall, "state": "reported",
+                     "reason": f"scope; {version}"}],
+        "evidence": {
+            "status": "evaluated",
+            "provenance": {"commit": "x", "note": "generated now"},
+            "model_version": version,
+            "model_sha256": sha,
+            "models": [{"key": "upgrade_base", "model_version": version, "cohorts": {"primary": {"recall": recall}}}],
+            "sg03": {"artifacts": {"upgrade_base": {"model_version": version}}, "notes": [],
+                     "inputs_sha256": {"train_data.csv": "t", "train_event_labels.csv": "local"}},
+        },
     }
 
 
@@ -39,11 +45,11 @@ class CompareReportsTest(unittest.TestCase):
     def test_metric_change_is_reported(self) -> None:
         result = compare_reports(payload(), payload(recall=0.9))
         self.assertFalse(result["metrics_identical"])
-        self.assertIn("/models[0]/cohorts/primary/recall: 0.873 != 0.9", result["differences"])
+        self.assertIn("/evidence/models[0]/cohorts/primary/recall: 0.873 != 0.9", result["differences"])
 
     def test_training_data_checksum_is_not_ignored(self) -> None:
         changed = payload()
-        changed["sg03"]["inputs_sha256"]["train_data.csv"] = "other"
+        changed["evidence"]["sg03"]["inputs_sha256"]["train_data.csv"] = "other"
         self.assertFalse(compare_reports(payload(), changed)["metrics_identical"])
 
 

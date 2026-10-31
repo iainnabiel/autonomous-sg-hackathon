@@ -1,9 +1,11 @@
 """SG-03.2 / SG-03.4 evaluation report: validation detection metrics as JSON and Markdown.
 
-The top level follows the dashboard's provisional ``MetricsResponse``
-(``frontend/src/api/types.ts``), so ``/metrics`` can serve the file unchanged.
-SG-03 detail (cohort counts, coverage, the paired trade-off, input checksums and
-cross-checks) is under ``sg03``. Nothing is fitted or tuned here.
+``build_report`` returns the evidence bundle. ``write_report`` stores the served
+body: ``contracts.schemas.MetricsReport`` at the top level plus that bundle under
+``evidence``, which is the dashboard's ``MetricsResponse`` (``frontend/src/api/types.ts``),
+so ``/metrics`` serves the file unchanged. SG-03 detail (cohort counts, coverage,
+the paired trade-off, input checksums and cross-checks) is under ``evidence.sg03``.
+Nothing is fitted or tuned here.
 """
 
 from __future__ import annotations
@@ -11,12 +13,12 @@ from __future__ import annotations
 import json
 import subprocess
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from contracts.policy import POLICY_VERSION
-from contracts.schemas import test_final_tier_accuracy
+from contracts.schemas import MetricResult, MetricsReport, MetricState, test_final_tier_accuracy
 from contracts.tiers import Tier
 from evaluation import sources
 from evaluation.adapters import MLRun, from_ml_validation_csv, load_ml_report
@@ -442,9 +444,61 @@ def to_markdown(payload: dict) -> str:
     return "\n".join(lines)
 
 
+def _metric(name: str, value: float | None, reason: str) -> MetricResult:
+    state = MetricState.REPORTED if value is not None else MetricState.UNAVAILABLE
+    return MetricResult(name=name, value=value, state=state, reason=reason)
+
+
+def to_response(evidence: dict) -> dict:
+    """The served ``/metrics`` body: ``contracts.schemas.MetricsReport`` plus the evidence bundle.
+
+    This is the dashboard's ``MetricsResponse``. Headline values for the primary
+    validation cohort are contract ``MetricResult``s; the full detail is ``evidence``.
+    Per-encounter labels are not served (``labels`` is empty).
+    """
+
+    primary = evidence["sg03"]["comparison"][PRIMARY]
+    n = primary["n"]
+    scope = f"validation primary cohort, n={n}"
+    metrics = []
+    for model in evidence["models"]:
+        cohort = model["cohorts"][PRIMARY]
+        critical = cohort["per_tier"]["Critical"]
+        metrics += [
+            _metric(f"critical_recall:{model['key']}", critical["recall"],
+                    f"{scope}; {critical['support']} final-tier Critical; {model['model_version']}"),
+            _metric(f"false_critical_alarms:{model['key']}", float(cohort["false_critical_alarms"]), scope),
+            _metric(f"critical_false_positive_rate:{model['key']}", cohort["critical_false_positive_rate"]["value"],
+                    f"{scope}; of {primary['non_critical']} non-Critical encounters"),
+        ]
+    metrics += [
+        _metric("extra_critical_caught", float(primary["extra_critical_caught"]), f"{scope}; model vs persistence"),
+        _metric("extra_false_alarms", float(primary["extra_false_alarms"]), f"{scope}; model vs persistence"),
+        _metric("upgrade_precision", primary["upgrade_precision"],
+                f"{scope}; {primary['upgrades']} upgrades; D7 budget is a trade-off constraint"),
+        test_final_tier_accuracy(),
+        MetricResult("predicted_final_pc_error", None, MetricState.NOT_EVALUATED, "the model predicts no Pc"),
+    ]
+    report = MetricsReport(
+        cohort_label="validation primary (final_is_early excluded, D4)",
+        sample_count=n,
+        model_version=evidence["model_version"],
+        policy_version=evidence["policy_version"],
+        metrics=tuple(metrics),
+        labels=(),
+    )
+    body = asdict(report)
+    body["metrics"] = [dict(item, state=item["state"].value) for item in body["metrics"]]
+    body["labels"] = []
+    body["evidence"] = evidence
+    return body
+
+
 def write_report(payload: dict, out_dir: Path = REPORTS_DIR) -> tuple[Path, Path]:
+    """Write the served body (``to_response``) as metrics.json and the evidence as metrics.md."""
+
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path, md_path = out_dir / "metrics.json", out_dir / "metrics.md"
-    json_path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    json_path.write_text(json.dumps(to_response(payload), indent=2, allow_nan=False) + "\n", encoding="utf-8")
     md_path.write_text(to_markdown(payload), encoding="utf-8")
     return json_path, md_path
