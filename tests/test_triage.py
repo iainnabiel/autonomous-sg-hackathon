@@ -119,6 +119,7 @@ class PolicyBoundaryTest(unittest.TestCase):
     def test_known_elevated_keeps_its_band_when_the_forecast_is_unavailable(self) -> None:
         at_one = _review(current=Tier.ELEVATED, tca=1.0, forecast=unavailable_forecast())
         after_one = _review(
+            event=8,
             current=Tier.ELEVATED,
             tca=math.nextafter(1.0, 2.0),
             forecast=unavailable_forecast(),
@@ -139,8 +140,8 @@ class PolicyBoundaryTest(unittest.TestCase):
         self.assertIn(PriorityReason.FORECAST_NOT_TREATED_AS_SAFE, after_one.reasons)
         self.assertEqual(unable.priority, PriorityBand.HIGH)
         self.assertIn(PriorityReason.FORECAST_NOT_TREATED_AS_SAFE, unable.reasons)
-        absent = _review(current=None, tca=1.0, forecast=unavailable_forecast())
-        safe = _review(current=Tier.SAFE, tca=1.0, forecast=unavailable_forecast())
+        absent = _review(event=9, current=None, tca=1.0, forecast=unavailable_forecast())
+        safe = _review(event=10, current=Tier.SAFE, tca=1.0, forecast=unavailable_forecast())
         self.assertEqual(absent.priority, PriorityBand.INCOMPLETE)
         self.assertIsNone(absent.current_rule_tier)
         self.assertEqual(safe.current_rule_tier, Tier.SAFE)
@@ -154,7 +155,7 @@ class PolicyBoundaryTest(unittest.TestCase):
 
     def test_missing_forecast_does_not_become_safe_or_routine(self) -> None:
         unable = _review(current=Tier.SAFE, tca=0.2, forecast=unable_to_assess())
-        unavailable = _review(current=None, tca=0.2, forecast=unavailable_forecast())
+        unavailable = _review(event=8, current=None, tca=0.2, forecast=unavailable_forecast())
         self.assertEqual(unable.priority, PriorityBand.INCOMPLETE)
         self.assertIsNone(unable.forecast_final_tier)
         self.assertIn(PriorityReason.INCOMPLETE_REVIEW, unable.reasons)
@@ -163,6 +164,20 @@ class PolicyBoundaryTest(unittest.TestCase):
         bands = sort_upcoming([unable, unavailable])
         self.assertEqual(bands[PriorityBand.ROUTINE], ())
         self.assertEqual(len(bands[PriorityBand.INCOMPLETE]), 2)
+
+    def test_unrated_current_with_forecast_is_flagged_incomplete(self) -> None:
+        decision = _review(current=None, tca=3.0, forecast=_available(Tier.ELEVATED))
+        self.assertEqual(decision.priority, PriorityBand.SCHEDULED)
+        self.assertIn(PriorityReason.INCOMPLETE_REVIEW, decision.reasons)
+
+    def test_forecast_from_another_file_is_rejected(self) -> None:
+        with self.assertRaises(ContractError):
+            _review(current=Tier.SAFE, tca=3.0, forecast=_available(Tier.SAFE, event_source="test"))
+
+    def test_duplicate_encounter_is_rejected_from_the_queue(self) -> None:
+        decision = _review(current=Tier.SAFE, tca=3.0, forecast=_available(Tier.SAFE))
+        with self.assertRaises(ContractError):
+            sort_upcoming([decision, decision])
 
     def test_negative_tca_is_left_out_of_upcoming_bands(self) -> None:
         decision = _review(current=Tier.CRITICAL, tca=-0.01, forecast=_available(Tier.CRITICAL), source_event=7)
