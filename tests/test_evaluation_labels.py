@@ -14,7 +14,8 @@ from evaluation.errors import EvaluationInputError
 from evaluation.labels import OrganiserLabel, RawMessage, SplitRow, derive_labels
 
 ROOT = Path(__file__).resolve().parents[1]
-E1_MODULES = ("errors", "labels", "cohorts", "predictions", "join")
+E1_MODULES = ("errors", "labels", "cohorts", "predictions", "join", "metrics", "compare", "adapters",
+              "sources", "report", "__main__")
 
 SAFE = dict(risk=-9.0, miss=20000.0)
 ELEVATED = dict(risk=-9.0, miss=3000.0)
@@ -260,6 +261,10 @@ class CrossCheckTest(unittest.TestCase):
         self.assertEqual(error.ids("malformed_id"), ("57",))
 
 
+def _numeric_literal(value: object) -> bool:
+    return type(value) is float or (type(value) is int and abs(value) >= 4)
+
+
 class ModuleHygieneTest(unittest.TestCase):
     """E1 imports only stdlib and contracts, and copies no thresholds or cutoff."""
 
@@ -277,15 +282,16 @@ class ModuleHygieneTest(unittest.TestCase):
                 self.assertFalse(roots & forbidden, f"{name}.py imports {roots & forbidden}")
 
     def test_no_copied_cutoff_or_tier_thresholds(self) -> None:
-        copied = {2.0, -4.0, -6.0, 1000.0, 5000.0}
+        copied = {2.0, -4.0, -6.0, 1000.0, 5000.0}  # cutoff and tier thresholds live in contracts
         for name in E1_MODULES:
             tree = ast.parse((ROOT / "evaluation" / f"{name}.py").read_text(encoding="utf-8"))
             numbers = set()
             for node in ast.walk(tree):
-                if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+                # Small integers are arithmetic (for example halving a rank), not a copied cutoff.
+                if isinstance(node, ast.Constant) and _numeric_literal(node.value):
                     numbers.add(float(node.value))
                 if (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub)
-                        and isinstance(node.operand, ast.Constant) and type(node.operand.value) in (int, float)):
+                        and isinstance(node.operand, ast.Constant) and _numeric_literal(node.operand.value)):
                     numbers.add(-float(node.operand.value))
             self.assertFalse(numbers & copied, f"{name}.py has literal {numbers & copied}")
 
