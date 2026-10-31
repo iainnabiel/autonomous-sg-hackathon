@@ -3,6 +3,7 @@
     python -m evaluation           confirm the package imports (no metrics)
     python -m evaluation report    write evaluation/reports/metrics.json and metrics.md
     python -m evaluation verify    compare a rerun or a served /metrics with metrics.json
+    python -m evaluation export-labels <workbook>   organiser label sheet -> Datasets/train_event_labels.csv
 """
 
 from __future__ import annotations
@@ -54,6 +55,14 @@ def _verify(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _export_labels(args: argparse.Namespace) -> int:
+    from evaluation import sources
+
+    out = Path(args.out) if args.out else sources.LABELS_CSV
+    print(f"wrote {sources.export_organiser_labels(Path(args.workbook), out)} label rows to {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m evaluation")
     commands = parser.add_subparsers(dest="command")
@@ -67,7 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     ver.add_argument("--expected", default=str(Path(__file__).resolve().parent / "reports" / "metrics.json"))
     ver.add_argument("--actual", help="a freshly generated metrics.json to compare with --expected")
     ver.add_argument("--served", help="URL of a running /metrics endpoint to compare with --expected")
+    exp = commands.add_parser("export-labels", help="write the organiser label sheet as Datasets/train_event_labels.csv")
+    exp.add_argument("workbook", help="organiser workbook, e.g. data/challenge1_event_labels.xlsx (local, never committed)")
+    exp.add_argument("--out", help="output CSV (default Datasets/train_event_labels.csv)")
     args = parser.parse_args(argv)
+    if args.command == "export-labels":
+        return _export_labels(args)
     if args.command == "report":
         return _report(args)
     if args.command == "verify":
