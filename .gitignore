@@ -54,3 +54,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Raw datasets (shared via Drive, never commit)
+Datasets/
