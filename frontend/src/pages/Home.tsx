@@ -1,16 +1,11 @@
-import { Fragment, Suspense, lazy, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
-import { fetchQueue } from '../api/client'
-import { useResource } from '../api/useResource'
+import { ArrowUpRight } from 'lucide-react'
 import type { Priority, RiskTier } from '../api/types'
-import { GlobeFallback } from '../components/globe/GlobeFallback'
-import { DemoTag, Footer } from '../components/layout/Page'
+import { Footer } from '../components/layout/Page'
+import { OrbitalOverview } from './Overview'
 import { PRIORITY_META, TIER_META } from '../lib/taxonomy'
-
-// three.js is only needed here; keep it out of the other pages' bundle.
-const Globe = lazy(() => import('../components/globe/Globe').then((m) => ({ default: m.Globe })))
 
 const ease = [0.22, 1, 0.36, 1] as const
 const rise = (delay = 0) => ({ initial: { opacity: 0, y: 14 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-80px' }, transition: { duration: 0.6, delay, ease } })
@@ -18,86 +13,13 @@ const rise = (delay = 0) => ({ initial: { opacity: 0, y: 14 }, whileInView: { op
 export function Home() {
   return (
     <>
-      <Hero />
+      <OrbitalOverview />
       <Problem />
       <Triage />
       <Flow />
       <Evidence />
       <Footer />
     </>
-  )
-}
-
-function Hero() {
-  const { state } = useResource(fetchQueue, 'queue')
-  const items = state.status === 'ready' ? state.data.items : null
-  const within24 = items?.filter((i) => i.tca_hours !== null && i.tca_hours <= 24).length
-  const immediate = items?.filter((i) => i.priority === 'immediate').length
-  const incomplete = items?.filter((i) => i.priority === 'incomplete').length
-
-  return (
-    <section className="relative overflow-hidden border-b border-line">
-      <div aria-hidden className="bg-grid pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto grid max-w-[1440px] grid-cols-1 items-center gap-10 px-5 pt-16 pb-10 md:px-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,6fr)] lg:pt-20 lg:pb-16">
-        <div className="relative z-10">
-          <motion.p {...rise(0)} className="eyebrow text-signal/80">
-            Conjunction triage · low Earth orbit
-          </motion.p>
-          <motion.h1 {...rise(0.05)} className="mt-5 text-[40px] leading-[0.98] font-medium tracking-[-0.03em] text-ink sm:text-[56px] lg:text-[68px]">
-            Thousands of warnings a day.
-            <br />
-            <span className="accent text-signal">Which one first?</span>
-          </motion.h1>
-          <motion.p {...rise(0.1)} className="mt-7 max-w-xl text-[17px] leading-relaxed text-ink-2">
-            Orbit reads conjunction messages, applies the risk rules, forecasts which encounters will end critical, and ranks every one by how dangerous it is <em className="accent not-italic text-ink">and</em> how soon it needs a human. Every decision comes with a receipt.
-          </motion.p>
-          <motion.div {...rise(0.15)} className="mt-9 flex flex-wrap items-center gap-3">
-            <Link to="/queue" className="group inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-void transition-colors hover:bg-signal">
-              Open the review queue
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-            <a href="#how" className="inline-flex items-center gap-2 rounded-md border border-line-strong px-4 py-2.5 text-sm text-ink-2 transition-colors hover:border-signal/40 hover:text-ink">
-              How it works
-            </a>
-          </motion.div>
-
-          <motion.dl {...rise(0.25)} className="mt-14 grid max-w-xl grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
-            <Stat label="Immediate" value={immediate} tone="var(--color-critical)" />
-            <Stat label="Within 24 h" value={within24} />
-            <Stat label="Incomplete" value={incomplete} tone="var(--color-unknown)" />
-          </motion.dl>
-          <p className="mt-2 flex items-center gap-2 font-mono text-[10px] text-ink-3">
-            Counts from the current queue. <DemoTag />
-          </p>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.2, ease }}
-          className="relative -mx-5 h-[420px] sm:h-[520px] md:-mx-8 lg:mx-0 lg:h-[640px]"
-        >
-          <Suspense fallback={<GlobeFallback className="absolute inset-0 lg:-right-24" />}>
-            <Globe className="absolute inset-0 lg:-right-24" />
-          </Suspense>
-          <div className="pointer-events-none absolute bottom-3 left-5 flex items-center gap-2 font-mono text-[10px] text-ink-3 md:left-8 lg:left-0">
-            <span className="size-1.5 rounded-full bg-critical" />
-            tracked pair approaching · schematic, not propagated orbits
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number | undefined; tone?: string }) {
-  return (
-    <div className="bg-panel/80 px-4 py-3">
-      <dt className="eyebrow">{label}</dt>
-      <dd className="tabular mt-1 text-2xl font-light text-ink" style={{ color: tone }}>
-        {value === undefined ? <span className="skeleton inline-block h-6 w-8 rounded align-middle" /> : value}
-      </dd>
-    </div>
   )
 }
 
