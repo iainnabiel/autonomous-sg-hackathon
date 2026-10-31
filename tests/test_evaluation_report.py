@@ -118,6 +118,10 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(payload["ranking_coverage"]["urgent_subset_n"], 0)
         self.assertEqual(payload["thresholds"]["upgrade_p_critical"], 0.5)
         self.assertTrue(payload["sg03"]["notes"])  # the label file checksum is not in split_meta
+        self.assertIn("Critical support is small (2 primary", payload["limitations"][-1])
+        checks = payload["sg03"]["cross_checks"]
+        self.assertEqual(checks["organiser_labels_vs_raw_messages"]["encounters"], 6)
+        self.assertEqual(checks["ml_prediction_labels_vs_sg03_labels"]["rows"], {"persistence": 4, "upgrade_base": 4})
 
     def test_report_writes_strict_json_and_markdown(self) -> None:
         payload = self.build()

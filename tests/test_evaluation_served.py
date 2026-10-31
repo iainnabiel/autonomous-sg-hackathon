@@ -21,6 +21,7 @@ class ServedMetricsTest(unittest.TestCase):
     def test_missing_file_is_not_evaluated_never_fixtures(self) -> None:
         response = metrics_response(self.path)
         self.assertEqual(response["status"], "not_evaluated")
+        self.assertEqual(metrics_response(str(self.path))["status"], "not_evaluated")  # a plain str path works
         self.assertEqual(response["models"], [])
         self.assertIsNone(response["ranking_coverage"])
         self.assertEqual(response["test"]["state"], "unavailable")

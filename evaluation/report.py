@@ -43,7 +43,6 @@ LIMITATIONS = (
     "compared at an equal false-alarm level.",
     "p_critical is an uncalibrated, class-weighted score for 'final tier is Critical'. It is not a collision "
     "probability (Pc) and is shown only as ranking quality.",
-    "Critical support is small (126 primary validation encounters), so intervals are wide.",
     "Encounters with no eligible early message are unable to assess. They are excluded from tier metrics and "
     "counted separately, never as Safe.",
 )
@@ -236,10 +235,12 @@ def build_report(
     ml_runs: dict[str, MLRun] = {}
     joined: dict[str, dict[str, tuple[JoinedRow, ...]]] = {}
     filtered: dict[str, dict[str, int]] = {}
+    ml_checked: dict[str, int] = {}
     for run in runs:
         ml_run = load_ml_report(run.report_json)
         rows, ml_labels = from_ml_validation_csv(run.predictions_csv, ml_run, tca, scored=run.scored)
         _check_ml_labels(ml_labels, labels, problems)
+        ml_checked[run.key] = len(ml_labels)
         problems.raise_if_any()
         ml_runs[run.key] = ml_run
         joined[run.key], filtered[run.key] = {}, {}
@@ -340,17 +341,26 @@ def build_report(
         "ranking_coverage": dashboard_view(triage[PRIMARY]),
         "sensitivity": None,
         "test": {"state": test_metric.state.value, "reason": test_metric.reason},
-        "limitations": list(LIMITATIONS),
+        "limitations": [*LIMITATIONS,
+                        f"Critical support is small ({cohorts[PRIMARY].support[Tier.CRITICAL]} primary validation "
+                        "encounters), so intervals are wide."],
         "sg03": {
             "schema_version": SCHEMA_VERSION,
             "inputs_sha256": checksums,
             "artifacts": artifacts,
             "notes": notes,
             "cross_checks": {
-                "organiser_labels_vs_raw_messages": "passed",
-                "split_vs_raw_final_is_early": "passed",
-                "ml_prediction_labels_vs_sg03_labels": "passed",
-                "forecast_source_is_latest_raw_eligible_message": "passed",
+                "note": "Each check stops the report on any disagreement, so a written report means every check "
+                        "passed. Counts are the records checked.",
+                "organiser_labels_vs_raw_messages": {"result": "passed", "encounters": len(labels)},
+                "split_vs_raw_final_is_early": {"result": "passed",
+                                                "encounters": sum(r.partition is not None for r in labels.values())},
+                "ml_prediction_labels_vs_sg03_labels": {"result": "passed",
+                                                        "rows": {key: checked for key, checked in ml_checked.items()}},
+                "forecast_source_is_latest_raw_eligible_message": {
+                    "result": "passed",
+                    "predictions": {key: len(joined[key][ALL_USABLE]) for key in joined},
+                },
             },
             "cohorts": {
                 cohort_id: {

@@ -33,7 +33,8 @@ def not_evaluated(reason: str) -> dict:
     }
 
 
-def metrics_response(path: Path = METRICS_JSON) -> dict:
+def metrics_response(path: Path | str = METRICS_JSON) -> dict:
+    path = Path(path)
     if not path.exists():
         return not_evaluated(f"{path.name} has not been generated; run python -m evaluation report")
     try:
