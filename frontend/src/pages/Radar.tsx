@@ -7,7 +7,7 @@ import { RadarChart, TIER_KEYS, type TierKey } from '../components/charts/RadarC
 import { TierPill } from '../components/Indicators'
 import { DemoTag, Page, PageHeader, Panel, PanelHeader } from '../components/layout/Page'
 import { EmptyState, ErrorState, LoadingBlock, LoadingRows } from '../components/StateViews'
-import { formatPc, formatTca } from '../lib/format'
+import { formatLogPc, formatTca } from '../lib/format'
 import { TIER_META } from '../lib/taxonomy'
 
 export function Radar() {
@@ -72,7 +72,7 @@ export function Radar() {
                     <span className="ml-auto">
                       <TierPill tier={i.risk_tier} />
                     </span>
-                    <span className="tabular hidden w-20 text-right font-mono text-[11px] text-ink-3 sm:inline">{formatPc(i.predicted_log10_pc)}</span>
+                    <span className="tabular hidden w-20 text-right font-mono text-[11px] text-ink-3 sm:inline">{formatLogPc(i.log10_pc)}</span>
                     <ArrowUpRight size={13} className="text-ink-3 group-hover:text-signal" />
                   </Link>
                 </li>

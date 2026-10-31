@@ -20,7 +20,7 @@ Other scripts: `npm run typecheck`, `npm run build`, `npm run preview`.
 | --- | --- | --- |
 | `/` | Overview: the problem, the triage policy as an interactive matrix, the six-step flow, evidence and limits. Schematic globe in the hero. | SG-09 narrative |
 | `/queue` | Prioritised review queue with band and tier filters and search. Rows open the encounter. | SG-07.2 |
-| `/encounter/:id` | Decision receipt, assessment history, encounter geometry. | SG-08.1 – 08.3 |
+| `/encounter/:id` | Decision receipt (rule tier, model forecast, urgency kept separate), human review controls with renewal indicator, assessment history against days to closest approach, “what changed” comparisons, RTN encounter geometry with an optional schematic flyby. | SG-08.1 – 08.6 |
 | `/radar` | Encounters by hours to their own closest approach, stacked by tier; next-24-hours list. | SG-07.3 |
 | `/evaluation` | Layout for the SG-03 artifacts. Shows "not evaluated" against a live API; labelled placeholders on fixtures. | SG-09.1 – 09.2 |
 
@@ -29,7 +29,7 @@ Other scripts: `npm run typecheck`, `npm run build`, `npm run preview`.
 | `VITE_API_URL` | Behaviour |
 | --- | --- |
 | empty / unset | Uses **demonstration fixtures** (`src/api/fixtures.ts`). A `DEMO DATA` badge stays in the nav and every figure carries a tag. |
-| set, e.g. `http://localhost:8000` | Calls the backend (`GET /queue`, `GET /encounters/:id`, `GET /radar`). If a request fails, the page shows an error. It never falls back to fixtures. |
+| set, e.g. `http://localhost:8000` | Calls the backend (`GET /queue`, `GET /encounters/:id`, `GET /radar`, `POST /encounters/:id/review`). If a request fails, the page shows an error. It never falls back to fixtures. |
 
 Copy `.env.example` to `.env.local` to set it.
 
@@ -38,6 +38,10 @@ On fixtures, append `?demo=loading`, `?demo=error` or `?demo=empty` to any URL t
 ## Contracts
 
 `src/api/types.ts` is a **provisional** frontend copy of the response shapes. SG-01.2 owns the shared contract and these types will be replaced once `contracts/` lands. Field names, endpoints and units (metres, hours, log10 Pc) are assumptions until then.
+
+The shapes follow the shipped model ([docs/ML_DECISIONS.md](../docs/ML_DECISIONS.md), `ml/inference.py`): the organisers' thresholds on the selected observation's supplied log10 Pc and miss distance give a **rule tier**; a classifier scores, from messages at least two days before closest approach, whether the encounter ends critical, and may raise the tier to critical (never lower it). The score is a ranking score, not a calibrated probability, and the UI never shows it as a percentage. Messages inside the two-day cutoff are drawn hollow in the history because the model never saw them.
+
+Review state (`POST /encounters/:id/review`, SG-02.8) is kept beside the assessment: it never changes the tier or band. In fixture mode it lives in memory and is lost on reload.
 
 ## Globe
 
@@ -51,6 +55,7 @@ src/
   components/
     layout/     Nav, Page frame, Panel, DemoTag, Footer
     charts/     HistoryChart, GeometryPlot, RadarChart, CoverageChart
+    encounter/  Receipt, Changes ("what changed"), ReviewControls
     globe/      Globe (R3F) and GlobeFallback (SVG + error boundary)
     ...         BandSummary, QueueTable, Indicators, StateViews
   pages/        Home, Queue, Encounter, Radar, Evaluation

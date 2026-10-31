@@ -49,7 +49,7 @@ function Hero() {
             <span className="accent text-signal">Which one first?</span>
           </motion.h1>
           <motion.p {...rise(0.1)} className="mt-7 max-w-xl text-[17px] leading-relaxed text-ink-2">
-            Orbit reads conjunction messages, estimates collision probability, and ranks every encounter by how dangerous it is <em className="accent not-italic text-ink">and</em> how soon it needs a human. Every decision comes with a receipt.
+            Orbit reads conjunction messages, applies the risk rules, forecasts which encounters will end critical, and ranks every one by how dangerous it is <em className="accent not-italic text-ink">and</em> how soon it needs a human. Every decision comes with a receipt.
           </motion.p>
           <motion.div {...rise(0.15)} className="mt-9 flex flex-wrap items-center gap-3">
             <Link to="/queue" className="group inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-void transition-colors hover:bg-signal">
@@ -163,7 +163,7 @@ function Triage() {
   return (
     <Section n="02 — What Orbit adds" title={<>Risk says how dangerous. <span className="accent text-signal">Urgency</span> says how soon.</>} id="how">
       <p className="max-w-2xl text-[15px] leading-relaxed text-ink-2">
-        A conventional model estimates collision probability. Orbit keeps that, then combines the risk tier with time to closest approach to place each encounter in one of four review bands. Data quality is tracked separately: an assessment that could not be completed is never allowed to look safe.
+        The organisers’ thresholds on the supplied probability and miss distance give a risk tier. A forecast model can raise that tier when the early messages look like encounters that ended critical, and never lowers it. Orbit then combines the tier with time to closest approach to place each encounter in one of four review bands. Data quality is tracked separately: an assessment that could not be completed is never allowed to look safe.
       </p>
 
       <div className="mt-10 min-w-0 overflow-x-auto">
@@ -212,8 +212,8 @@ function Triage() {
 const STEPS = [
   { n: '01', title: 'Message arrives', body: 'A conjunction data message with relative position, miss distance, time to closest approach, and covariance.' },
   { n: '02', title: 'Validate', body: 'Units are checked and converted centrally. Missing required fields are flagged, not guessed. Negative TCA is excluded from upcoming views.' },
-  { n: '03', title: 'Estimate Pc', body: 'A versioned tree-based model estimates log₁₀ collision probability from the telemetry. Not calibrated confidence — a point estimate.' },
-  { n: '04', title: 'Classify', body: 'Probability and distance thresholds give a risk tier: critical, elevated, or safe. A missing input gives “incomplete”, never “safe”.' },
+  { n: '03', title: 'Classify by rule', body: 'The organisers’ probability and distance thresholds on the latest message give a rule tier: critical, elevated, or safe. A missing input gives “incomplete”, never “safe”.' },
+  { n: '04', title: 'Forecast', body: 'A versioned classifier scores, from messages at least two days out, whether the encounter will end critical. Above a fixed threshold it raises the tier; it never lowers one. A ranking score, not a calibrated probability.' },
   { n: '05', title: 'Triage', body: 'Tier × time to closest approach places the encounter in a band. Within a band, soonest first.' },
   { n: '06', title: 'Receipt', body: 'Inputs, thresholds, rules that fired, model and policy versions — a compact record of why this encounter is where it is.' },
 ]
@@ -250,7 +250,7 @@ function Evidence() {
       <div className="grid gap-8 md:grid-cols-2">
         <div>
           <p className="text-[15px] leading-relaxed text-ink-2">
-            The evaluation separates three claims: how well the model estimates probability, how well the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than ranking by risk, distance, or time alone. Each is reported with its denominators.
+            The evaluation separates three claims: how many critical endings the forecast catches beyond the persistence rule and at what false-alarm cost, how the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than ranking by risk, distance, or time alone. Each is reported with its denominators.
           </p>
           <Link to="/evaluation" className="group mt-6 inline-flex items-center gap-2 text-sm text-signal">
             See the evaluation <ArrowUpRight size={15} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -261,10 +261,10 @@ function Evidence() {
             <span className="text-ink">Not a manoeuvre planner.</span> Orbit decides what to look at first. It does not recommend burns.
           </li>
           <li className="hairline-t pt-4">
-            <span className="text-ink">Not calibrated confidence.</span> The supplied covariance is telemetry, not a percentage the model is sure of.
+            <span className="text-ink">Not calibrated confidence.</span> The forecast score ranks encounters; it is not a probability. The supplied covariance is telemetry, not a percentage the model is sure of.
           </li>
           <li className="hairline-t pt-4">
-            <span className="text-ink">Not a live clock.</span> Hours are relative to each encounter’s own closest approach in the held-out data.
+            <span className="text-ink">Blind inside two days.</span> The forecast only sees messages at least two days out. A late geometry change is caught by re-assessing each new message, not by the model.
           </li>
         </ul>
       </div>
