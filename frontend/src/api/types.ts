@@ -207,3 +207,80 @@ export interface RadarResponse {
 }
 
 export type DataSource = 'api' | 'fixture'
+
+// --- Evaluation evidence (SG-03.4 `/metrics`, provisional) -------------------
+
+export type TierLabel = 'Critical' | 'Elevated' | 'Safe'
+
+export interface CohortResult {
+  n: number
+  confusion_matrix: { labels: TierLabel[]; rows_actual_cols_predicted: number[][] }
+  per_tier: Record<TierLabel, { precision: number; recall: number; support: number; predicted: number }>
+  critical_recall_95ci: [number, number]
+  critical_predicted_safe: number
+  false_critical_alarms: number
+  /** Reported for completeness; never the headline (predicting everything Safe scores about 0.73). */
+  accuracy_not_headline: number
+}
+
+export interface ModelResult {
+  key: string
+  label: string
+  role: 'baseline' | 'shipped' | 'comparison'
+  model_version: string
+  /** Upgrade threshold on p_critical; null for the rule-only baseline. */
+  threshold: number | null
+  /** Encounters whose tier the model raised to critical (primary cohort); null when not applicable. */
+  upgrades: number | null
+  cohorts: { primary: CohortResult; all_usable: CohortResult }
+  ranking: { roc_auc: number; pr_auc: number } | null
+}
+
+export interface RankingCoverage {
+  cohort: string
+  /** Number of encounters in the imminent (urgent-window) subset; the denominator of the imminent curve. */
+  urgent_subset_n: number
+  imminent_critical_n: number
+  all_critical_n: number
+  rankings: {
+    key: string
+    label: string
+    /** [proportion of queue reviewed, proportion of imminent critical encounters covered] pairs. */
+    imminent: [number, number][]
+    all: [number, number][]
+    /** Null when the subset has no positives (marked not applicable, never zero). */
+    top_10_20_30_imminent: [number | null, number | null, number | null]
+    top_10_20_30_all: [number | null, number | null, number | null]
+  }[]
+}
+
+export interface MetricsResponse {
+  status: 'evaluated' | 'not_evaluated'
+  provenance: { source: string; commit: string | null; branch: string | null; bundled_on: string | null; generated_by: string; note: string }
+  dataset: { train_sha256: string; split: string; cohort: string; cohort_definition: string }
+  model_version: string
+  model_sha256: string | null
+  policy_version: string
+  thresholds: { upgrade_p_critical: number; min_upgrade_precision: number; selection: string }
+  models: ModelResult[]
+  detection: { model: string; support: number; detected: number; missed: number; missed_as_safe: number; false_alarms: number }[]
+  probability_critical: { support: number; rows: { model: string; detected: number; missed: number; false_alarms: number }[]; note: string } | null
+  cross_validation: {
+    folds: number
+    n: number
+    support: Record<TierLabel, number>
+    thresholds: number[]
+    pooled: Record<string, { critical_precision: number; critical_recall: number; critical_f1: number; critical_f2: number; macro_f1: number; false_critical: number; critical_missed_as_safe: number }>
+    per_fold: Record<string, { critical_recall: number[] }>
+  } | null
+  /** SG-03.3 queue-usefulness comparison. Null until evaluated. */
+  ranking_coverage: RankingCoverage | null
+  sensitivity: {
+    model_version: string
+    tca_bands: { condition: string; encounters: number; critical: number; rule_recall: number | null; model_recall: number | null; model_precision: number | null; false_critical: number }[]
+    masked_inputs: { condition: string; encounters: number; critical: number; rule_recall: number | null; model_recall: number | null; model_precision: number | null; false_critical: number; tiers_changed: number }[]
+    importance: { feature: string; mean_drop_pr_auc: number | null; std: number | null }[]
+  } | null
+  test: { state: 'unavailable' | 'reported'; reason: string }
+  limitations: string[]
+}

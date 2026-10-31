@@ -1,4 +1,5 @@
-import type { DataSource, EncounterDetail, QueueResponse, RadarResponse, ReviewState, ReviewStatus } from './types'
+import type { DataSource, EncounterDetail, MetricsResponse, QueueResponse, RadarResponse, ReviewState, ReviewStatus } from './types'
+import bundledEvidence from '../evidence/validation.json'
 import { fixtureEncounter, fixtureQueue, fixtureRadar, fixtureSetReview } from './fixtures'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '')
@@ -70,4 +71,41 @@ export function setReview(encounterId: string, status: ReviewStatus, observation
     return request<ReviewState>(`/encounters/${encodeURIComponent(encounterId)}/review`, { method: 'POST', body: JSON.stringify({ status, observation_id: observationId }) })
   }
   return fixture(() => fixtureSetReview(encounterId, status, observationId), 250)
+}
+
+/**
+ * Evaluation evidence (SG-03.4). Against an API, a 404 means "not evaluated" and is shown as such.
+ * Without an API, the committed ml/reports are served as a bundled artifact (see scripts/bundle_evidence.py):
+ * real validation numbers, labelled with their source commit, never demonstration data.
+ */
+export async function fetchMetrics(signal?: AbortSignal): Promise<MetricsResponse> {
+  if (dataSource === 'api') {
+    try {
+      return await getJson<MetricsResponse>('/metrics', signal)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return notEvaluated('The backend has no /metrics endpoint yet (SG-03.4).')
+      throw err
+    }
+  }
+  return fixture(() => bundledEvidence as unknown as MetricsResponse)
+}
+
+function notEvaluated(reason: string): MetricsResponse {
+  return {
+    status: 'not_evaluated',
+    provenance: { source: 'none', commit: null, branch: null, bundled_on: null, generated_by: 'none', note: reason },
+    dataset: { train_sha256: '', split: '', cohort: '', cohort_definition: '' },
+    model_version: '',
+    model_sha256: null,
+    policy_version: '',
+    thresholds: { upgrade_p_critical: NaN, min_upgrade_precision: NaN, selection: '' },
+    models: [],
+    detection: [],
+    probability_critical: null,
+    cross_validation: null,
+    ranking_coverage: null,
+    sensitivity: null,
+    test: { state: 'unavailable', reason },
+    limitations: [],
+  }
 }
