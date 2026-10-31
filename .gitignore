@@ -1,0 +1,56 @@
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+credentials.json
+credentials*.json
+secrets.json
+secrets*.json
+*.secret
+.aws/
+.npmrc
+.pypirc
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+target/
+coverage/
+*.egg-info/
+*.tsbuildinfo
+.cache/
+
+# OS clutter
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor swap files
+*.swp
+*.swo
+*~
