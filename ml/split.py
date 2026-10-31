@@ -1,14 +1,14 @@
 """SG-04.2 Save encounter-grouped split.
 
 Run:    python -m ml.split
-Writes: ml/splits/train_validation.csv  (encounter_id, partition)
-        ml/splits/split_meta.json       (seed, fraction, train CSV sha256, counts, critical support)
+Writes: ml/splits/train_validation.csv  (encounter_id, partition, final_tier, final_is_early)
+        ml/splits/split_meta.json       (seed, fraction, train/labels sha256, counts per tier)
 
 Done when:
-- No encounter appears in both partitions (assert it).
-- Seed and membership saved; re-running gives identical output.
-- Row/encounter counts and critical-case support reported per partition.
-- Test file is not read.
+- Only usable train encounters; 80/20 by encounter, stratified by final_tier.
+- No encounter appears in both partitions (assert it); re-running gives identical output.
+- Tier support per partition reported, with and without final_is_early encounters.
+- test_data.csv is not read.
 """
 
 

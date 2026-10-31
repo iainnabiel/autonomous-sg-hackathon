@@ -57,3 +57,6 @@ Desktop.ini
 
 # ML generated artifacts (models, prediction files); share via Drive with checksums
 ml/artifacts/
+
+# Raw datasets (shared via Drive, never commit)
+Datasets/

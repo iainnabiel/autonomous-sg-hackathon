@@ -1,18 +1,24 @@
-"""SG-05.1 to SG-05.3 Train and compare models on the validation partition.
+"""SG-05.1 to SG-05.3 Persistence baseline and Critical-upgrade model.
 
-Run:    python -m ml.train --model baseline                          # SG-05.1
-        python -m ml.train --model hgb --features telemetry          # SG-05.2
-        python -m ml.train --model hgb --features telemetry_mre      # SG-05.3
+Approach (decision D3): the persistence rule assigns a tier from the latest early
+message; a binary "will this end Critical?" classifier can only upgrade it to Critical.
+
+Run:    python -m ml.train --model persistence                    # SG-05.1
+        python -m ml.train --model upgrade --features base        # SG-05.2
+        python -m ml.train --model upgrade --features base_mre    # SG-05.3 (+ max_risk_estimate)
 Writes: ml/artifacts/<run>/model.joblib                (gitignored)
-        ml/artifacts/<run>/validation_predictions.csv  (row_id, encounter_id, predicted_log_pc)
-        ml/reports/<run>.json                          (config, runtime, error, critical detection)
+        ml/artifacts/<run>/validation_predictions.csv  (encounter_id, persistence_tier,
+                                                        p_critical, predicted_tier, upgraded)
+        ml/reports/<run>.json                          (config, runtime, metrics)
 
 Done when:
-- Every run uses ml/splits/train_validation.csv and fits on training only.
-- Baseline is a constant log-risk predictor.
-- One tree-based regressor (e.g. HistGradientBoostingRegressor); finite outputs.
-- Conversion to Pc and any clipping documented; no calibrated-confidence claim.
-- SG-05.3 uses the identical split and cohort and discloses dependence on max_risk_estimate.
+- Every run uses ml/splits/train_validation.csv; fit on the training partition only.
+- Headline metric: Critical recall vs persistence at a comparable false-alarm level,
+  on the cohort excluding final_is_early (decision D4); also report it including them.
+- Report confusion matrices, per-tier precision/recall with support, and the
+  Critical -> Safe misses; no accuracy-only claims.
+- Upgrade threshold chosen on validation and recorded; no calibrated-confidence claim.
+- SG-05.3 uses the identical split and discloses dependence on max_risk_estimate.
 """
 
 import argparse
@@ -20,8 +26,8 @@ import argparse
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["baseline", "hgb"], required=True)
-    parser.add_argument("--features", choices=["telemetry", "telemetry_mre"], default="telemetry")
+    parser.add_argument("--model", choices=["persistence", "upgrade"], required=True)
+    parser.add_argument("--features", choices=["base", "base_mre"], default="base")
     parser.parse_args()
     raise NotImplementedError("SG-05.1 to SG-05.3")
 
