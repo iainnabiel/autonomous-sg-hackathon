@@ -253,7 +253,11 @@ def _check_record(
         problems.add("inference_unavailable", key)
     elif not eligible:
         reasons = record.forecast.reason_codes
-        if status is not ForecastStatus.UNABLE_TO_ASSESS or record.persistence_tier or record.upgraded:
+        if (
+            status is not ForecastStatus.UNABLE_TO_ASSESS
+            or record.persistence_tier is not None
+            or record.upgraded is not None
+        ):
             problems.add("status_eligibility_mismatch", key)
         elif ReasonCode.NO_ELIGIBLE_OBSERVATION not in reasons or ReasonCode.MODEL_UNAVAILABLE in reasons:
             problems.add("unable_to_assess_reason", key)
