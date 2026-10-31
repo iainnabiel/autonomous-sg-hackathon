@@ -1,5 +1,5 @@
-import type { DataSource, QueueResponse } from './types'
-import { fixtureQueue } from './fixtures'
+import type { DataSource, EncounterDetail, QueueResponse, RadarResponse } from './types'
+import { fixtureEncounter, fixtureQueue, fixtureRadar } from './fixtures'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '')
 
@@ -29,16 +29,32 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 // `?demo=loading|error|empty` previews UI states while on fixtures.
-function fixtureState() {
+function demoState() {
   return new URLSearchParams(window.location.search).get('demo')
 }
 
-export async function fetchQueue(signal?: AbortSignal): Promise<QueueResponse> {
-  if (dataSource === 'api') return getJson<QueueResponse>('/queue', signal)
-
-  const demo = fixtureState()
-  await new Promise((r) => setTimeout(r, demo === 'loading' ? 1e9 : 450))
+async function fixture<T>(produce: () => T): Promise<T> {
+  const demo = demoState()
+  await new Promise((r) => setTimeout(r, demo === 'loading' ? 1e9 : 350))
   if (demo === 'error') throw new ApiError('Simulated error (fixture mode)')
-  if (demo === 'empty') return { ...fixtureQueue, items: [] }
-  return fixtureQueue
+  return produce()
+}
+
+export function fetchQueue(signal?: AbortSignal): Promise<QueueResponse> {
+  if (dataSource === 'api') return getJson<QueueResponse>('/queue', signal)
+  return fixture(() => (demoState() === 'empty' ? { ...fixtureQueue, items: [] } : fixtureQueue))
+}
+
+export function fetchEncounter(id: string, signal?: AbortSignal): Promise<EncounterDetail> {
+  if (dataSource === 'api') return getJson<EncounterDetail>(`/encounters/${encodeURIComponent(id)}`, signal)
+  return fixture(() => {
+    const d = fixtureEncounter(id)
+    if (!d) throw new ApiError(`No encounter ${id}`, 404)
+    return d
+  })
+}
+
+export function fetchRadar(signal?: AbortSignal): Promise<RadarResponse> {
+  if (dataSource === 'api') return getJson<RadarResponse>('/radar', signal)
+  return fixture(fixtureRadar)
 }

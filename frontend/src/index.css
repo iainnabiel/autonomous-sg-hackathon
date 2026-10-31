@@ -1,20 +1,22 @@
 @import 'tailwindcss';
 
-/* Design tokens. Colour carries meaning only: tier colours are reserved for risk tier. */
+/* Design tokens. Colour carries meaning only: tier colours are reserved for risk tier,
+   cyan marks interaction and the product's own voice. Everything else is ink on dark. */
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
 
-  --color-void: #05070d;
-  --color-base: #080c15;
-  --color-panel: #0b111d;
-  --color-raised: #101828;
+  --color-void: #04060b;
+  --color-base: #070a12;
+  --color-panel: #0a0f1a;
+  --color-raised: #0f1626;
   --color-line: rgb(148 178 230 / 0.09);
   --color-line-strong: rgb(148 178 230 / 0.18);
 
-  --color-ink: #e7edf7;
-  --color-ink-2: #a3b0c4;
-  --color-ink-3: #66748b;
+  --color-ink: #e9eef7;
+  --color-ink-2: #a7b2c6;
+  --color-ink-3: #68758c;
 
   --color-signal: #6fe3ff;
   --color-signal-dim: rgb(111 227 255 / 0.12);
@@ -25,10 +27,17 @@
   --color-safe: #46d1a0;
   --color-unknown: #8b97ab;
 
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
+
   --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
   @keyframes shimmer {
     from { background-position: -400px 0; }
     to { background-position: 400px 0; }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.6); opacity: 0.8; }
+    100% { transform: scale(2.2); opacity: 0; }
   }
 }
 
@@ -36,6 +45,7 @@
   html {
     color-scheme: dark;
     background: var(--color-void);
+    scroll-behavior: smooth;
   }
   body {
     @apply font-sans text-ink antialiased;
@@ -49,18 +59,33 @@
     outline: 1px solid var(--color-signal);
     outline-offset: 2px;
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-  /* Faint coordinate grid behind the workspace, fading out toward the bottom. */
+  /* Eyebrow labels: mono, small caps-ish tracking. Used for section numbers and field names. */
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-ink-3;
+  }
+  /* Editorial accent inside headlines. */
+  .accent {
+    @apply font-serif font-normal italic;
+    letter-spacing: -0.01em;
+  }
+  /* Faint coordinate grid behind the workspace, fading toward the bottom. */
   .bg-grid {
     background-image:
       linear-gradient(to right, rgb(148 178 230 / 0.035) 1px, transparent 1px),
       linear-gradient(to bottom, rgb(148 178 230 / 0.035) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background-size: 56px 56px;
     mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
   }
   .skeleton {
@@ -71,5 +96,11 @@
   /* Diagonal hatch marks assessments that are not complete — visually never "safe". */
   .hatch {
     background-image: repeating-linear-gradient(135deg, rgb(139 151 171 / 0.35) 0 2px, transparent 2px 5px);
+  }
+  .hairline-t {
+    border-top: 1px solid var(--color-line);
+  }
+  .hairline-b {
+    border-bottom: 1px solid var(--color-line);
   }
 }
