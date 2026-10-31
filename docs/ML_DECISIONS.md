@@ -36,7 +36,7 @@ Data files:
 - **Excluded from features:** every message with raw `time_to_tca` < 2 days, and every `final_*` label field. `ml/data.early_messages` applies the cutoff and `ml/data.check_features` rejects the workbook's `final_*` label columns.
 - **Eligible final message:** if an encounter's final message is itself ≥ 2 days out, its ordinary `risk` is an eligible input like any other. That encounter stays in the all-usable cohort; D4 excludes it from the primary cohort because its label is visible in the inputs.
 
-**Changes:** SG-02.3 currently says "risk excluded from inference inputs". It becomes "only `risk` from messages with `time_to_tca` ≥ 2 days may be an input; messages below 2 days and all `final_*` fields are excluded".
+**Changes:** Only `risk` from messages with raw `time_to_tca` ≥ 2 days may be an inference input. Later-message `risk` and all `final_*` fields stay excluded. SG-02.3 does not exclude every `risk` value.
 
 ### D2. Headline metric
 
