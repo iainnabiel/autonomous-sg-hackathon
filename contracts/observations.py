@@ -10,6 +10,7 @@ Ties break by smaller observation row index, then by source name.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from contracts.errors import ContractError
@@ -32,8 +33,12 @@ class Observation:
     def __post_init__(self) -> None:
         if self.observation_id.source != self.encounter_id.source:
             raise ContractError("observation and encounter must come from the same source file")
-        if isinstance(self.time_to_tca_days, bool) or not isinstance(self.time_to_tca_days, (int, float)):
-            raise ContractError("time_to_tca_days must be a number of days")
+        if (
+            isinstance(self.time_to_tca_days, bool)
+            or not isinstance(self.time_to_tca_days, (int, float))
+            or not math.isfinite(self.time_to_tca_days)
+        ):
+            raise ContractError("time_to_tca_days must be a finite number of days")
 
 
 def is_early_eligible(time_to_tca_days: float) -> bool:

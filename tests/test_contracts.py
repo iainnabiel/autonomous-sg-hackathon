@@ -75,6 +75,19 @@ class IdAndEnumTest(unittest.TestCase):
         self.assertEqual(current_rule_tier(-7.0, 5000.1), Tier.SAFE)
         self.assertIsNone(current_rule_tier(None, None))
         self.assertEqual(current_rule_tier(None, 640.0), Tier.CRITICAL)
+        self.assertEqual(current_rule_tier(-3.0, None), Tier.CRITICAL)
+        self.assertIsNone(current_rule_tier(-5.0, None))
+        self.assertIsNone(current_rule_tier(None, 3000.0))
+        self.assertEqual(current_rule_tier(-5.0, 3000.0), Tier.ELEVATED)
+
+    def test_unusable_inputs_are_not_critical_evidence(self) -> None:
+        far = 8000.0
+        safe_probability = -7.0
+        for bad in (True, math.nan, math.inf, -math.inf, 0.5):
+            self.assertIsNone(current_rule_tier(bad, far), bad)
+        self.assertIsNone(current_rule_tier(safe_probability, -1.0))
+        self.assertEqual(current_rule_tier(-3.0, math.nan), Tier.CRITICAL)
+        self.assertEqual(current_rule_tier(0.5, 500.0), Tier.CRITICAL)
 
 
 class ForecastConsistencyTest(unittest.TestCase):
@@ -114,6 +127,15 @@ class ForecastConsistencyTest(unittest.TestCase):
         self.assertEqual(forecast.p_critical, 0.62)
         self.assertIsNone(forecast.predicted_final_log10_pc)
         self.assertIsNone(forecast.predicted_final_pc)
+        for value in (math.inf, -math.inf, math.nan):
+            with self.assertRaises(ContractError):
+                available_forecast(
+                    tier=Tier.CRITICAL,
+                    source_observation_id=ObservationId("train", 4),
+                    source_time_to_tca_days=2.0,
+                    model_version="upgrade-base",
+                    p_critical=value,
+                )
         with self.assertRaises(ContractError):
             Forecast(
                 status=ForecastStatus.AVAILABLE,
@@ -191,6 +213,9 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual(early.time_to_tca_days, 2.0)
         self.assertIsNone(select_early_observation([_obs(9, 1.9)]))
         self.assertIsNone(select_upcoming_observation([_obs(9, -1.0)]))
+        for value in (math.nan, math.inf, -math.inf):
+            with self.assertRaises(ContractError):
+                _obs(1, value)
 
     def test_tiny_negative_raw_tca_zero_and_no_upcoming_observation(self) -> None:
         """Events 10630 and 12907 are negative in the raw file and −0 in the workbook."""
