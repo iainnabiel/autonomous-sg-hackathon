@@ -15,6 +15,7 @@ window already includes its boundaries, so exactly 0 days and exactly 1 day
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -96,7 +97,8 @@ def _reasons(
         reasons.append(PriorityReason.CURRENT_EVIDENCE)
     if within_one_day and priority in (PriorityBand.IMMEDIATE, PriorityBand.HIGH):
         reasons.append(PriorityReason.TIME_WITHIN_ONE_DAY)
-    if priority is PriorityBand.INCOMPLETE:
+    # An unrated current message is incomplete even when a forecast sets the band.
+    if priority is PriorityBand.INCOMPLETE or current is None:
         reasons.append(PriorityReason.INCOMPLETE_REVIEW)
     return reasons
 
@@ -111,8 +113,12 @@ def assign_review(
 ) -> ReviewDecision:
     """Assign a prototype queue band. Original tiers are only read."""
 
-    if isinstance(current_time_to_tca_days, bool) or not isinstance(current_time_to_tca_days, (int, float)):
-        raise ContractError("current TCA must be a number of days")
+    if (
+        isinstance(current_time_to_tca_days, bool)
+        or not isinstance(current_time_to_tca_days, (int, float))
+        or not math.isfinite(current_time_to_tca_days)
+    ):
+        raise ContractError("current TCA must be a finite number of days")
     if forecast.status is ForecastStatus.CARRIED_FORWARD:
         if source_encounter_id is None:
             raise ContractError("a carried-forward forecast must name the source encounter")
@@ -122,6 +128,11 @@ def assign_review(
             raise ContractError("carried-forward forecast is missing its source observation")
     elif source_encounter_id is not None and source_encounter_id != encounter_id:
         raise ContractError("forecast source encounter does not match the encounter under review")
+    if (
+        forecast.source_observation_id is not None
+        and forecast.source_observation_id.source != encounter_id.source
+    ):
+        raise ContractError("forecast source observation comes from a different file")
 
     forecast_tier = forecast.forecast_final_tier
     prioritisation = _more_severe(current_rule_tier, forecast_tier)
@@ -181,9 +192,13 @@ def sort_upcoming(decisions: list[ReviewDecision]) -> dict[PriorityBand, tuple[R
     """Upcoming bands only. Negative-TCA rows are omitted. Incomplete is its own band."""
 
     grouped: dict[PriorityBand, list[ReviewDecision]] = {band: [] for band in PriorityBand}
+    seen: set[EncounterId] = set()
     for decision in decisions:
         if not decision.in_upcoming_queue or decision.priority is None:
             continue
+        if decision.encounter_id in seen:
+            raise ContractError(f"encounter {decision.encounter_id} appears more than once in the queue")
+        seen.add(decision.encounter_id)
         grouped[decision.priority].append(decision)
     for members in grouped.values():
         members.sort(
@@ -193,8 +208,4 @@ def sort_upcoming(decisions: list[ReviewDecision]) -> dict[PriorityBand, tuple[R
                 decision.encounter_id.event_id,
             )
         )
-    routine_ids = {decision.encounter_id for decision in grouped[PriorityBand.ROUTINE]}
-    incomplete_ids = {decision.encounter_id for decision in grouped[PriorityBand.INCOMPLETE]}
-    if routine_ids & incomplete_ids:
-        raise ContractError("an incomplete review was placed in Routine")
     return {band: tuple(members) for band, members in grouped.items()}

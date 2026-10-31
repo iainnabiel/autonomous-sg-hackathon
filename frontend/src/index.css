@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+
+/* Design tokens. Colour carries meaning only: tier colours are reserved for risk tier,
+   cyan marks interaction and the product's own voice. Everything else is ink on dark. */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --color-void: #04060b;
+  --color-base: #070a12;
+  --color-panel: #0a0f1a;
+  --color-raised: #0f1626;
+  --color-line: rgb(148 178 230 / 0.09);
+  --color-line-strong: rgb(148 178 230 / 0.18);
+
+  --color-ink: #e9eef7;
+  --color-ink-2: #a7b2c6;
+  --color-ink-3: #68758c;
+
+  --color-signal: #6fe3ff;
+  --color-signal-dim: rgb(111 227 255 / 0.12);
+  --color-violet: #a99cff;
+
+  --color-critical: #ff5f6d;
+  --color-elevated: #f2b34a;
+  --color-safe: #46d1a0;
+  --color-unknown: #8b97ab;
+
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to { background-position: 400px 0; }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.6); opacity: 0.8; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-void);
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: rgb(111 227 255 / 0.25);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Eyebrow labels: mono, small caps-ish tracking. Used for section numbers and field names. */
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-ink-3;
+  }
+  /* Editorial accent inside headlines. */
+  .accent {
+    @apply font-serif font-normal italic;
+    letter-spacing: -0.01em;
+  }
+  /* Faint coordinate grid behind the workspace, fading toward the bottom. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(148 178 230 / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(148 178 230 / 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 85%);
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgb(148 178 230 / 0.04) 0%, rgb(148 178 230 / 0.1) 50%, rgb(148 178 230 / 0.04) 100%);
+    background-size: 800px 100%;
+    animation: var(--animate-shimmer);
+  }
+  /* Diagonal hatch marks assessments that are not complete — visually never "safe". */
+  .hatch {
+    background-image: repeating-linear-gradient(135deg, rgb(139 151 171 / 0.35) 0 2px, transparent 2px 5px);
+  }
+  .hairline-t {
+    border-top: 1px solid var(--color-line);
+  }
+  .hairline-b {
+    border-bottom: 1px solid var(--color-line);
+  }
+}
