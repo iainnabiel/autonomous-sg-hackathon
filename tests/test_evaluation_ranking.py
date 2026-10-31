@@ -87,6 +87,13 @@ class RankingTest(unittest.TestCase):
         self.assertEqual((view["urgent_subset_n"], view["imminent_critical_n"], view["all_critical_n"]), (0, 0, 3))
         self.assertEqual(view["rankings"][0]["top_10_20_30_imminent"], [None, None, None])
 
+    def test_R6_missing_supplied_values_sort_last(self) -> None:
+        from evaluation.ranking import _missing_last
+        values = [3.0, None, float("nan"), -1.0]
+        ordered = sorted(values, key=_missing_last)
+        self.assertEqual(ordered[:2], [-1.0, 3.0])
+        self.assertTrue(all(v is None or v != v for v in ordered[2:]))
+
     def test_R5_curve_is_cumulative_and_ends_at_full_coverage(self) -> None:
         curve = ranked(R1)["proposed_queue"]["final_critical"]["curve"]
         self.assertEqual(curve[0], [0.0, 0.0])
