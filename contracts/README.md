@@ -41,7 +41,7 @@ Encounter IDs and observation IDs are different types with the same spelling.
 | `p_critical` | Upgrade classifier score for “will the final tier be Critical?”. See below. |
 | Predicted final log10(Pc) and Pc | Optional. Null for the current upgrade model. |
 
-`p_critical` comes from the unmerged SG-05 upgrade classifier: `predict_proba` for the Critical class with `class_weight="balanced"`. It is not a calibrated probability, not a collision probability, and not a percentage. It is present only when that classifier is applied to an encounter with at least one observation at `time_to_tca >= 2` days. It is null for the persistence baseline, for `unable_to_assess`, and when inference is unavailable. Encounters whose final message is itself early can still have a score. The primary cohort is an evaluation filter, not a condition for the score.
+`p_critical` comes from the SG-05 upgrade classifier: `predict_proba` for the Critical class with `class_weight="balanced"`. It is not a calibrated probability, not a collision probability, and not a percentage. It is present only when that classifier is applied to an encounter with at least one observation at `time_to_tca >= 2` days. It is null for the persistence baseline, for `unable_to_assess`, and when inference is unavailable. Encounters whose final message is itself early can still have a score. The primary cohort is an evaluation filter, not a condition for the score.
 
 A known Critical trigger on the current message stays Critical when the other input is missing, including when the forecast is null. An Elevated input with the other input missing stays unrated, because the missing input could still be Critical.
 

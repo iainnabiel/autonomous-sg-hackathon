@@ -127,7 +127,7 @@ class ForecastConsistencyTest(unittest.TestCase):
         self.assertEqual(forecast.p_critical, 0.62)
         self.assertIsNone(forecast.predicted_final_log10_pc)
         self.assertIsNone(forecast.predicted_final_pc)
-        for value in (math.inf, -math.inf, math.nan):
+        for value in (math.inf, -math.inf, math.nan, -0.1, 1.1):
             with self.assertRaises(ContractError):
                 available_forecast(
                     tier=Tier.CRITICAL,
