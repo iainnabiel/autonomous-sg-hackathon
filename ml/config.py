@@ -65,3 +65,7 @@ CRITICAL_LOG_PC = -4.0
 ELEVATED_LOG_PC = -6.0
 CRITICAL_DISTANCE_M = 1000.0
 ELEVATED_DISTANCE_M = 5000.0
+
+# Decision D7: an upgrade to Critical must be right at least this often on training
+# folds, i.e. at most 3 false alarms per extra Critical caught.
+MIN_UPGRADE_PRECISION = 0.25

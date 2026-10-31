@@ -10,7 +10,7 @@ Organiser workbook sheets ``data_notes`` and ``tier_rules`` (local, not committe
 - ``event_id`` restarts in each file.
 
 ``docs/ML_DECISIONS.md`` on main is the merged decision record (D1–D6).
-The upgrade classifier in open PR #12 is cited only for what ``p_critical``
+The merged SG-05 upgrade classifier is cited only for what ``p_critical``
 is. Its threshold rule is SG-05 work and is not an operational policy here.
 Sigma units are not stated in the organiser notes.
 """
@@ -26,6 +26,8 @@ CRITICAL_MISS_DISTANCE_M = 1000.0
 ELEVATED_MISS_DISTANCE_M = 5000.0
 
 POLICY_VERSION = "sg-01.2-sg-01.3"
+TRIAGE_POLICY_VERSION = "triage-prototype-sg-01.4"
+UPCOMING_URGENCY_DAYS = 1.0
 SPLIT_SEED = 42
 VALIDATION_FRACTION = 0.2
 
@@ -58,7 +60,7 @@ FORBIDDEN_INFERENCE_COLUMNS = frozenset(
 P_CRITICAL_DEFINITION = (
     "p_critical is the upgrade classifier's score for the question "
     "'will this encounter's final tier be Critical?'. "
-    "The unmerged SG-05 classifier computes it as "
+    "The SG-05 classifier computes it as "
     "HistGradientBoostingClassifier.predict_proba for the Critical class "
     "with class_weight='balanced', so the number is not a calibrated probability. "
     "It is not a collision probability and must not be displayed as a percentage chance. "
