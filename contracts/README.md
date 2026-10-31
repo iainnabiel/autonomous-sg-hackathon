@@ -2,7 +2,7 @@
 
 **Owner:** Iain
 
-Shared schemas for SG-01.2 and SG-01.3. The package validates payloads and documents selection rules. It does not train a model, serve an API, or render the dashboard. Queue priority names are reserved for SG-01.4, which still assigns them.
+Shared schemas for SG-01.2 and SG-01.3. The package validates payloads and documents selection rules. It does not train a model, serve an API, or render the dashboard. Queue bands are assigned by the prototype policy in `contracts/triage.py`, version `triage-prototype-sg-01.4`. That policy does not change these schemas.
 
 ## Startup
 
@@ -77,3 +77,25 @@ Score final-tier metrics on held-out training encounters that have final labels.
 ## Fixtures
 
 `synthetic_examples()` is labelled `synthetic development fixtures` and uses the `fixture:` source. It covers a successful forecast, `unable_to_assess` with a visible current Critical trigger, an unavailable model, and a carried-forward forecast.
+
+## Prototype review policy
+
+Version `triage-prototype-sg-01.4`. This orders review attention. It is not a certified operational standard and it is not an instruction to execute a manoeuvre. The schema version remains `sg-01.2-sg-01.3`.
+
+The prioritisation tier is the more severe of the current rule tier and `forecast_final_tier`. Neither stored tier is overwritten. `p_critical` and the model’s upgrade threshold are not inputs. Urgency uses the current observation’s TCA. Exactly 0 days and exactly 1 day are inside the one-day bands. Negative current TCA is omitted from the upcoming queue.
+
+| Current tier | Forecast tier | Current TCA | Priority | Why |
+| --- | --- | --- | --- | --- |
+| Critical | Safe | 0.5 day | Immediate | Current evidence wins; the forecast does not downgrade it; time is within 1 day |
+| Critical | Safe | 2 days | High | Current Critical remains; time is outside 1 day |
+| Safe | Critical | 0.5 day | Immediate | Forecast escalates; time is within 1 day |
+| Safe | Critical | 2 days | High | Forecast escalates; other Critical encounters are High |
+| Elevated | Safe | 2 days | Scheduled | Current Elevated is not downgraded |
+| Elevated | Elevated | 1 day | High | Elevated and time is within 1 day, including the boundary |
+| Safe | Safe, valid forecast | 3 days | Routine | Complete current Safe assessment and a valid Safe forecast |
+| Safe | unavailable or unable to assess | 0.2 day | Incomplete | A missing forecast is not treated as Safe and is not filed as Routine |
+| null | null | 0.2 day | Incomplete | No tier evidence |
+| Critical | unavailable | 0 days | Immediate | Known Critical evidence stays urgent |
+| Safe | Critical, carried forward from 3 days | 0.25 day | Immediate | Urgency uses 0.25 day; source observation and source TCA stay on the forecast |
+
+Carried-forward forecasts must name the same encounter as the row under review. Within each upcoming band, rows are ordered by current TCA, then source name, then numeric encounter id. The incomplete band stays separate from Routine.
