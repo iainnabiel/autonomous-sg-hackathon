@@ -18,7 +18,7 @@ from contracts.tiers import Tier
 
 
 class PriorityBand(str, Enum):
-    """Allowed labels only. SG-01.4 owns the mapping rules."""
+    """Allowed labels. ``contracts.triage`` assigns them and does not change tier rules."""
 
     IMMEDIATE = "Immediate"
     HIGH = "High"
@@ -33,6 +33,10 @@ class QualityFlag(str, Enum):
     INFERENCE_UNAVAILABLE = "inference_unavailable"
     CARRIED_FORWARD = "carried_forward"
     SIGMA_UNITS_UNCONFIRMED = "sigma_units_unconfirmed"
+    # Emitted by ml/inference.predict_encounters(). The model does not impute.
+    SIGMA_PLACEHOLDER = "sigma_placeholder"
+    OPTIONAL_INPUT_MISSING = "optional_input_missing"
+    SINGLE_EARLY_OBSERVATION = "single_early_observation"
 
 
 class MetricState(str, Enum):
