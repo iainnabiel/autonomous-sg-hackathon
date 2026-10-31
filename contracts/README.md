@@ -2,7 +2,7 @@
 
 **Owner:** Iain
 
-Shared interfaces used by the model, backend, and dashboard. Observation identity, prediction, risk tier, queue priority, receipts, and history responses are specified in SG-01.2.
+Shared schemas for SG-01.2 and SG-01.3. The package validates payloads and documents selection rules. It does not train a model, serve an API, or render the dashboard. Queue priority names are reserved for SG-01.4, which still assigns them.
 
 ## Startup
 
@@ -13,3 +13,67 @@ python -m contracts
 ```
 
 The command confirms the package imports. There is no server to start.
+
+Checks:
+
+```bash
+python -m unittest tests.test_contracts
+```
+
+## Identifiers
+
+Encounter IDs and observation IDs are different types with the same spelling.
+
+| ID | Example | Integer means |
+| --- | --- | --- |
+| Encounter | `train:57` | `event_id` in that file |
+| Observation | `train:1234` | 0-based CSV row in that file |
+
+`event_id` restarts in each file. `train:57` and `test:57` are different encounters. A row id of `train:57` is not encounter `train:57`.
+
+## Quantities
+
+| Field | Meaning |
+| --- | --- |
+| Supplied early risk | log10(Pc) on a message. It may be a model feature only when `time_to_tca >= 2` days. |
+| Current rule tier | Organiser tier rules applied to the message in hand: Critical, then Elevated, then Safe. |
+| Forecast final tier | Model output for the final message. Title case: `Safe`, `Elevated`, `Critical`. |
+| `p_critical` | Upgrade classifier score for “will the final tier be Critical?”. See below. |
+| Predicted final log10(Pc) and Pc | Optional. Null for the current upgrade model. |
+
+`p_critical` comes from the unmerged SG-05 upgrade classifier: `predict_proba` for the Critical class with `class_weight="balanced"`. It is not a calibrated probability, not a collision probability, and not a percentage. It is present only when that classifier is applied to an encounter with at least one observation at `time_to_tca >= 2` days. It is null for the persistence baseline, for `unable_to_assess`, and when inference is unavailable. Encounters whose final message is itself early can still have a score. The primary cohort is an evaluation filter, not a condition for the score.
+
+A known Critical trigger on the current message stays Critical when the other input is missing, including when the forecast is null.
+
+## Units
+
+Confirmed from the organiser `data_notes` sheet: miss distance and relative position are metres, relative speed is m/s, and `time_to_tca` is days. Hours are `days * 24` for display only. Sigma units are unconfirmed.
+
+## Selection
+
+| Use | Rule |
+| --- | --- |
+| Training and evaluation labels | Smallest `time_to_tca`, including negative values |
+| Upcoming views | Smallest nonnegative `time_to_tca` |
+| Early inference | Smallest `time_to_tca` among rows at or above 2 days |
+
+Ties break by the smaller observation row index, then by source name. Exactly 2.0 days is eligible. Anything below 2 days is refused for inference and is not silently scored.
+
+A forecast shown on a later message keeps the original source observation id and that observation’s TCA, and its status is `carried_forward`.
+
+## Status
+
+| Forecast status | Forecast tier | `p_critical` |
+| --- | --- | --- |
+| `available` | Set | Set only for the upgrade classifier; otherwise null |
+| `unable_to_assess` | Null | Null. The encounter has no eligible early observation. |
+| `unavailable` | Null | Null. Inference failed explicitly. |
+| `carried_forward` | Copied | Copied from the source forecast, not recomputed |
+
+## Evaluation
+
+Score final-tier metrics on held-out training encounters that have final labels. The merged split is encounter-grouped, seed 42, 20% validation, stratified by `final_tier`, usable encounters only (at least one message at or beyond 2 days). The primary cohort excludes `final_is_early` and is reported separately from all usable encounters. Test messages contain current risk and no final outcomes, so test final-tier accuracy is `unavailable` and must not be filled in. Labels live on evaluation records, not on inference payloads.
+
+## Fixtures
+
+`synthetic_examples()` is labelled `synthetic development fixtures` and uses the `fixture:` source. It covers a successful forecast, `unable_to_assess` with a visible current Critical trigger, an unavailable model, and a carried-forward forecast.
