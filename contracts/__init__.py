@@ -19,7 +19,8 @@ from contracts.observations import (
     select_label_observation,
     select_upcoming_observation,
 )
-from contracts.policy import POLICY_VERSION
+from contracts.policy import POLICY_VERSION, TRIAGE_POLICY_VERSION
+from contracts.triage import assign_review, sort_upcoming
 from contracts.schemas import INFERENCE_FIELDS, test_final_tier_accuracy
 from contracts.tiers import Tier, current_rule_tier
 
@@ -30,6 +31,9 @@ __all__ = [
     "INFERENCE_FIELDS",
     "ObservationId",
     "POLICY_VERSION",
+    "TRIAGE_POLICY_VERSION",
+    "assign_review",
+    "sort_upcoming",
     "Tier",
     "assert_inference_columns",
     "available_forecast",
