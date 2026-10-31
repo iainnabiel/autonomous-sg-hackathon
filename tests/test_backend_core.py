@@ -17,6 +17,7 @@ import math
 import random
 import threading
 import unittest
+from pathlib import Path
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
@@ -35,6 +36,14 @@ from contracts.ids import EncounterId, ObservationId
 from contracts.schemas import PriorityBand
 from contracts.tiers import Tier, current_rule_tier
 from contracts.triage import PriorityReason
+
+def _has_served() -> bool:
+    import importlib.util
+    try:
+        return importlib.util.find_spec("evaluation.served") is not None
+    except ModuleNotFoundError:
+        return False
+
 
 MOCK = ModelInfo(model_version="MOCK-synthetic", model_sha256=None, threshold=0.12, feature_set="base")
 
@@ -436,9 +445,47 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.get("/encounters/test:57.0")[0], 400)
         self.assertEqual(self.get("/encounters/train:1")[0], 404)
         self.assertEqual(self.get("/nope")[0], 404)
-        self.assertEqual(self.get("/metrics")[0], 404)
         self.assertEqual(self.get("/encounters/test:1/review", method="POST")[0], 501)
         self.assertEqual(self.get("/queue", method="OPTIONS")[0], 204)
+
+    def test_metrics_without_sg_03_4_package_is_503(self) -> None:
+        import sys
+        if "evaluation.served" in sys.modules or _has_served():
+            self.skipTest("evaluation.served is installed")
+        self.assertEqual(self.get("/metrics")[0], 503)
+
+    def test_metrics_passthrough_with_stand_in_module(self) -> None:
+        # Stand-in for SG-03.4's evaluation.served (PR #33), not the real module.
+        import sys
+        import types
+
+        class MetricsFileError(ValueError):
+            pass
+
+        payloads = {"ok": {"status": "evaluated", "models": []}, "absent": {"status": "not_evaluated"}}
+
+        def metrics_response(path=Path("evaluation/reports/metrics.json")):
+            assert isinstance(path, Path), "the real metrics_response takes a Path"
+            if str(path) == "bad":
+                raise MetricsFileError("metrics.json has the wrong schema")
+            return payloads["absent" if str(path) == "absent" else "ok"]
+
+        fake = types.ModuleType("evaluation.served")
+        fake.MetricsFileError, fake.metrics_response = MetricsFileError, metrics_response
+        saved = sys.modules.get("evaluation.served")
+        sys.modules["evaluation.served"] = fake
+        try:
+            from backend.api import metrics
+            self.assertEqual(metrics(None), (200, payloads["ok"]))
+            self.assertEqual(metrics("absent"), (200, payloads["absent"]))
+            self.assertEqual(metrics("bad"), (500, {"error": "metrics.json has the wrong schema"}))
+            status, body, _ = self.get("/metrics")
+            self.assertEqual((status, body), (200, payloads["ok"]))
+        finally:
+            if saved is None:
+                sys.modules.pop("evaluation.served", None)
+            else:
+                sys.modules["evaluation.served"] = saved
 
     def test_responses_are_deterministic(self) -> None:
         self.assertEqual(json.dumps(queue(self.state)), json.dumps(queue(self.state)))

@@ -14,7 +14,10 @@ Endpoints (dashboard client paths, provisional ``frontend/src/api/types.ts`` sha
   decision receipt. ``changes`` is null until SG-02.7.
 - ``GET /radar``: counts by hours to closest approach and tier.
 - ``POST /encounters/{id}/review``: 501, SG-02.8 is not implemented.
-- ``GET /metrics``: 404, evaluation evidence is SG-03.4.
+- ``GET /metrics``: SG-03.4 evidence from ``evaluation.served.metrics_response``
+  (default file ``evaluation/reports/metrics.json``): 200 with the file, or
+  ``not_evaluated`` when it is absent; 500 for an unreadable or invalid file;
+  503 if the SG-03.4 package is not installed. Never fixtures.
 
 A failed model load is not fatal: every forecast is ``unavailable`` and the
 reason is in ``/health`` and each receipt. Missing data files are fatal.
@@ -28,6 +31,7 @@ import re
 from collections import Counter
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import unquote
 
 from backend.radar import radar
@@ -89,7 +93,18 @@ def encounter(state: CohortState, key: str) -> dict | None:
     }
 
 
-def make_handler(state: CohortState):
+def metrics(path: str | None) -> tuple[int, dict]:
+    try:
+        from evaluation.served import MetricsFileError, metrics_response
+    except ImportError:
+        return 503, {"error": "evaluation package without SG-03.4 (evaluation.served) is not installed"}
+    try:
+        return 200, (metrics_response(Path(path)) if path else metrics_response())
+    except MetricsFileError as exc:
+        return 500, {"error": str(exc)}
+
+
+def make_handler(state: CohortState, metrics_path: str | None = None):
     class Handler(BaseHTTPRequestHandler):
         def _send(self, status: int, body: dict) -> None:
             payload = json.dumps(body, allow_nan=False).encode()
@@ -119,7 +134,7 @@ def make_handler(state: CohortState):
             if path == "/radar":
                 return self._send(200, radar(state.assessments.values(), cohort=state.view_label, caveat=state.caveat))
             if path == "/metrics":
-                return self._error(404, "evaluation evidence is served by SG-03.4, not this backend")
+                return self._send(*metrics(metrics_path))
             match = _ENCOUNTER.fullmatch(path)
             if match:
                 key = unquote(match.group(1))
@@ -148,6 +163,7 @@ def main() -> None:
     parser.add_argument("--model-dir", default="ml/artifacts/upgrade_base")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--metrics", default=None, help="metrics JSON (default: evaluation/reports/metrics.json)")
     args = parser.parse_args()
 
     state = build_cohort(args.cohort, args.model_dir)
@@ -156,7 +172,7 @@ def main() -> None:
     print(f"  queued {info['queued']}, excluded {info['excluded']}, bands {info['bands']}")
     print(f"  model {info['model_status']}: {info['model_version'] or info['model_problem']}")
     print(f"  http://{args.host}:{args.port}  (dashboard: VITE_API_URL=http://localhost:{args.port})")
-    ThreadingHTTPServer((args.host, args.port), make_handler(state)).serve_forever()
+    ThreadingHTTPServer((args.host, args.port), make_handler(state, args.metrics)).serve_forever()
 
 
 if __name__ == "__main__":
