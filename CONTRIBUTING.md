@@ -1,25 +1,37 @@
 # Contributing
 
-Do not push directly to `main`. Land changes through a pull request that another teammate reviews and approves.
+Everyone, including the repository owner, follows this workflow.
 
-1. Update local `main` before starting work.
+- Never push directly to `main`.
+- Never merge your own pull request without another teammate’s approval.
+- Do not force-push to `main`.
+- These rules apply to everyone, including the owner.
 
-   ```bash
-   git checkout main
-   git pull origin main
-   ```
+GitHub branch protection is currently unavailable for this private repository, so this workflow is a team agreement and is not technically enforced.
 
-2. Create a feature branch, such as `feature/login`.
-
-   ```bash
-   git checkout -b feature/login
-   ```
-
-3. Commit and push that feature branch.
+1. Update local `main`:
 
    ```bash
-   git push -u origin HEAD
+   git switch main
+   git pull --ff-only origin main
    ```
 
-4. Open a pull request targeting `main`.
-5. Have another teammate review and approve it before merging.
+2. Create a descriptive feature branch:
+
+   ```bash
+   git switch -c feature/short-description
+   ```
+
+3. Make changes, stage the intended files, and commit.
+
+4. Push the feature branch:
+
+   ```bash
+   git push -u origin feature/short-description
+   ```
+
+5. Open a pull request targeting `main`. Describe what changed and how it was tested.
+
+6. Request review from another teammate. Wait for at least one teammate’s approval and address review comments before merging.
+
+7. If code changes after approval, request another review before merging.
