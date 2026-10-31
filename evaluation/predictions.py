@@ -164,6 +164,10 @@ def parse_prediction_rows(rows: Iterable[Mapping[str, object]]) -> tuple[Predict
         except (TypeError, ValueError):
             problems.add("invalid_score", label)
             continue
+        # Forecast also rejects this, but the specific code is more useful than invalid_forecast.
+        if p_critical is not None and not 0.0 <= p_critical <= 1.0:
+            problems.add("invalid_score", label)
+            continue
         upgraded = row.get("upgraded")
         if not (upgraded is None or isinstance(upgraded, bool)):
             problems.add("invalid_upgrade", label)
