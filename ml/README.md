@@ -1,6 +1,8 @@
 # ml/ — Data, model, limitations
 
-Owner: Khaleil. Covers SG-04, SG-05, and SG-06 in the task plan.
+**Owner:** Khaleil
+
+Covers SG-04, SG-05, and SG-06 in the task plan.
 
 **Task:** predict each encounter's final tier (Safe / Elevated / Critical) using only messages sent at least 2 days before closest approach. Approach, metric, and cohort decisions are in [docs/ML_DECISIONS.md](../docs/ML_DECISIONS.md).
 
