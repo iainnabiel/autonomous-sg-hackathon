@@ -34,12 +34,12 @@ Each stage is one subtask, built on its own branch and PR. Stages marked *stub* 
 | Order | Task | Module | Command | Output |
 | --- | --- | --- | --- | --- |
 | 1 | SG-04.1 Profile data quality | `profile_data.py` (stub) | `python -m ml.profile_data` | `reports/data_profile.md` |
-| 2 | SG-04.2 Encounter-grouped split | `split.py` (stub) | `python -m ml.split` | `splits/train_validation.csv`, `splits/split_meta.json` |
-| 3 | SG-04.3 Encounter features | `features.py` (stub) | used by stages 4 to 7 | — |
-| 4 | SG-05.1 Persistence baseline | `train.py` (stub) | `python -m ml.train --model persistence` | `artifacts/<run>/`, `reports/<run>.json` |
-| 5 | SG-05.2 Critical-upgrade model | `train.py` (stub) | `python -m ml.train --model upgrade --features base` | as above |
-| 6 | SG-05.3 With `max_risk_estimate` | `train.py` (stub) | `python -m ml.train --model upgrade --features base_mre` | as above |
-| 7 | SG-05.4 Package inference | `inference.py` (stub) | `from ml.inference import predict_encounters` | model bundle for the backend |
+| 2 | SG-04.2 Encounter-grouped split | `split.py` | `python -m ml.split` | `splits/train_validation.csv`, `splits/split_meta.json` |
+| 3 | SG-04.3 Encounter features | `features.py` | used by stages 4 to 7 | — |
+| 4 | SG-05.1 Persistence baseline | `train.py` | `python -m ml.train --model persistence` | `artifacts/<run>/`, `reports/<run>.json` |
+| 5 | SG-05.2 Critical-upgrade model | `train.py` | `python -m ml.train --model upgrade --features base` | as above |
+| 6 | SG-05.3 With `max_risk_estimate` | `train.py` | `python -m ml.train --model upgrade --features base_mre` | as above |
+| 7 | SG-05.4 Package inference | `inference.py` | `python -m ml.inference --source test` | `artifacts/predictions_test.csv`; `predict_encounters()` for the backend |
 | 8 | SG-06.1 Select model on validation | to add | — | `reports/model_selection.md` |
 | 9 | SG-06.2 Missed Critical cases | to add | — | `reports/failure_analysis.md` |
 | 10 | SG-06.3 Freeze and score test | to add | — | test predictions (no outcomes to score against) |
