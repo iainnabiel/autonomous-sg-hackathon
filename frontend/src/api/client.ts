@@ -1,4 +1,4 @@
-import type { DataSource, EncounterDetail, MetricsResponse, QueueResponse, RelativeTimeSummary, ReviewState, ReviewStatus } from './types'
+import type { DataSource, EncounterDetail, MetricsResponse, QueueResponse, RadarResponse, ReviewState, ReviewStatus } from './types'
 import bundledEvidence from '../evidence/validation.json'
 import { fixtureEncounter, fixtureQueue, fixtureRadar, fixtureSetReview } from './fixtures'
 
@@ -43,13 +43,11 @@ async function fixture<T>(produce: () => T, delay = 350): Promise<T> {
   return produce()
 }
 
-/** `GET /queue` → upcoming encounters in band order (SG-02.4). */
 export function fetchQueue(signal?: AbortSignal): Promise<QueueResponse> {
   if (dataSource === 'api') return getJson<QueueResponse>('/queue', signal)
   return fixture(() => (demoState() === 'empty' ? { ...fixtureQueue(), items: [] } : fixtureQueue()))
 }
 
-/** `GET /encounters/:id` → item, history in update order, receipt, and comparisons when the backend has them. */
 export function fetchEncounter(id: string, signal?: AbortSignal): Promise<EncounterDetail> {
   if (dataSource === 'api') return getJson<EncounterDetail>(`/encounters/${encodeURIComponent(id)}`, signal)
   return fixture(() => {
@@ -59,16 +57,26 @@ export function fetchEncounter(id: string, signal?: AbortSignal): Promise<Encoun
   })
 }
 
-/** `GET /radar` → `RelativeTimeSummary` (SG-02.5): inclusive hour bins holding encounter IDs. */
-export function fetchRadar(signal?: AbortSignal): Promise<RelativeTimeSummary> {
-  if (dataSource === 'api') return getJson<RelativeTimeSummary>('/radar', signal)
+export function fetchRadar(signal?: AbortSignal): Promise<RadarResponse> {
+  if (dataSource === 'api') return getJson<RadarResponse>('/radar', signal)
   return fixture(fixtureRadar)
 }
 
 /**
- * `GET /metrics` → `MetricsReport` plus the evidence bundle (SG-03.4). A 404 is "not evaluated".
- * Without an API, the committed ml/reports are served as a bundled artifact (scripts/bundle_evidence.py):
- * real validation numbers labelled with their source commit, never demonstration data.
+ * Record a human review status against an observation (SG-02.8). The backend decides
+ * renewal; the response is the stored state. Status never changes risk tier or band.
+ */
+export function setReview(encounterId: string, status: ReviewStatus, observationId: string): Promise<ReviewState> {
+  if (dataSource === 'api') {
+    return request<ReviewState>(`/encounters/${encodeURIComponent(encounterId)}/review`, { method: 'POST', body: JSON.stringify({ status, observation_id: observationId }) })
+  }
+  return fixture(() => fixtureSetReview(encounterId, status, observationId), 250)
+}
+
+/**
+ * Evaluation evidence (SG-03.4). Against an API, a 404 means "not evaluated" and is shown as such.
+ * Without an API, the committed ml/reports are served as a bundled artifact (see scripts/bundle_evidence.py):
+ * real validation numbers, labelled with their source commit, never demonstration data.
  */
 export async function fetchMetrics(signal?: AbortSignal): Promise<MetricsResponse> {
   if (dataSource === 'api') {
@@ -83,16 +91,21 @@ export async function fetchMetrics(signal?: AbortSignal): Promise<MetricsRespons
 }
 
 function notEvaluated(reason: string): MetricsResponse {
-  return { cohort_label: 'not evaluated', sample_count: null, model_version: null, policy_version: '', metrics: [{ name: 'evaluation', value: null, state: 'not_evaluated', reason }], labels: [], evidence: null }
-}
-
-/**
- * `POST /encounters/:id/review` (SG-02.8, EXTENSION: not yet in contracts). Records a human review status
- * against an observation; the backend decides renewal. Status never changes a tier or a band.
- */
-export function setReview(encounterId: string, status: ReviewStatus, observationId: string): Promise<ReviewState> {
-  if (dataSource === 'api') {
-    return request<ReviewState>(`/encounters/${encodeURIComponent(encounterId)}/review`, { method: 'POST', body: JSON.stringify({ status, observation_id: observationId }) })
+  return {
+    status: 'not_evaluated',
+    provenance: { source: 'none', commit: null, branch: null, bundled_on: null, generated_by: 'none', note: reason },
+    dataset: { train_sha256: '', split: '', cohort: '', cohort_definition: '' },
+    model_version: '',
+    model_sha256: null,
+    policy_version: '',
+    thresholds: { upgrade_p_critical: NaN, min_upgrade_precision: NaN, selection: '' },
+    models: [],
+    detection: [],
+    probability_critical: null,
+    cross_validation: null,
+    ranking_coverage: null,
+    sensitivity: null,
+    test: { state: 'unavailable', reason },
+    limitations: [],
   }
-  return fixture(() => fixtureSetReview(encounterId, status, observationId), 250)
 }

@@ -1,31 +1,26 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Play } from 'lucide-react'
-import type { Observation } from '../../api/types'
+import type { Geometry } from '../../api/types'
 import { formatDistance, formatSpeed } from '../../lib/format'
 
-const SIGMA_PLACEHOLDER = 6.378136e7
-
 /**
- * Relative position of the other object in the target's RTN frame at closest approach, target at the origin
- * (SG-08.3), from the contract observation's `relative_position_*_m` fields. Only radial sigmas are supplied,
- * with unconfirmed units, so the only uncertainty drawn is a radial 1σ bar labelled as such.
+ * Relative position of the other object in the target's RTN frame at closest approach,
+ * target at the origin (SG-08.3). Two orthogonal projections from the supplied fields.
+ * Only radial sigmas are supplied, so the only uncertainty drawn is a radial 1σ bar.
  * The optional flyby (SG-08.4) is a straight-line schematic, not a propagated orbit.
  */
-export function GeometryPlot({ observation }: { observation: Observation | null }) {
+export function GeometryPlot({ geometry, missDistance }: { geometry: Geometry; missDistance: number | null }) {
+  const { r_m, t_m, n_m, c_sigma_r_m, t_sigma_r_m, sigma_placeholder, relative_speed_m_s } = geometry
   const [run, setRun] = useState(0)
-  if (!observation) return <p className="px-5 py-10 text-center text-sm text-ink-3">The selected observation is not in the history payload.</p>
-  const { relative_position_r_m: r_m, relative_position_t_m: t_m, relative_position_n_m: n_m, relative_speed_m_s, miss_distance_m } = observation
+
   if (r_m === null || t_m === null || n_m === null) {
     return <p className="px-5 py-10 text-center text-sm text-ink-3">Relative position not supplied for this observation. Geometry cannot be plotted.</p>
   }
-  const cs = observation.c_sigma_r ?? null
-  const ts = observation.t_sigma_r ?? null
-  const placeholder = (cs !== null && cs >= SIGMA_PLACEHOLDER) || (ts !== null && ts >= SIGMA_PLACEHOLDER)
-  const radialSigma = cs !== null && ts !== null && !placeholder ? Math.hypot(cs, ts) : null
 
   const norm = Math.hypot(r_m, t_m, n_m)
-  const mismatch = miss_distance_m !== null && miss_distance_m > 0 ? Math.abs(norm - miss_distance_m) / miss_distance_m : null
+  const mismatch = missDistance !== null && missDistance > 0 ? Math.abs(norm - missDistance) / missDistance : null
+  const radialSigma = c_sigma_r_m !== null && t_sigma_r_m !== null ? Math.hypot(c_sigma_r_m, t_sigma_r_m) : null
 
   return (
     <div>
@@ -36,30 +31,28 @@ export function GeometryPlot({ observation }: { observation: Observation | null 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line px-5 py-3 font-mono text-[10px] text-ink-3">
         <span>
           |r, t, n| = <span className="text-ink-2">{formatDistance(norm)}</span>
-          {miss_distance_m !== null && (
+          {missDistance !== null && (
             <>
               {' '}
-              · supplied miss <span className="text-ink-2">{formatDistance(miss_distance_m)}</span>
+              · supplied miss <span className="text-ink-2">{formatDistance(missDistance)}</span>
               {mismatch !== null && (mismatch < 0.05 ? <span className="ml-1 text-safe">consistent</span> : <span className="ml-1 text-elevated">differs by {Math.round(mismatch * 100)}%</span>)}
             </>
           )}
         </span>
         <span>
           radial 1σ:{' '}
-          {placeholder ? (
-            <span className="text-elevated">placeholder 6.378136e7, treated as missing</span>
+          {sigma_placeholder && radialSigma === null ? (
+            <span className="text-elevated">placeholder, treated as missing</span>
           ) : radialSigma === null ? (
             'not supplied'
           ) : (
             <span className="text-ink-2">
-              {radialSigma.toFixed(1)} <span className="text-ink-3">(√(c² + t²), units unconfirmed, drawn as metres; supplied covariance, not model confidence)</span>
+              {formatDistance(radialSigma)} <span className="text-ink-3">(√(c² + t²), supplied covariance, not model confidence)</span>
             </span>
           )}
         </span>
-        <span>
-          relative speed <span className="text-ink-2">{formatSpeed(relative_speed_m_s)}</span>
-        </span>
-        <button type="button" onClick={() => setRun((n) => n + 1)} className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line-strong px-2.5 py-1 text-[11px] text-ink-2 transition-colors hover:border-signal/40 hover:text-ink">
+        <span>relative speed <span className="text-ink-2">{formatSpeed(relative_speed_m_s)}</span></span>
+        <button type="button" onClick={() => setRun((n) => n + 1)} className="btn btn-secondary ml-auto h-8 px-2.5 text-[12px]">
           <Play size={11} /> {run === 0 ? 'Play schematic flyby' : 'Replay'}
         </button>
       </div>
@@ -102,6 +95,7 @@ function Projection({ title, x, y, ySigma, xLabel, yLabel, run, speed }: Project
   const ticks: number[] = []
   for (let v = -Math.floor(extent / step) * step; v <= extent; v += step) ticks.push(v)
 
+  // Flyby schematic: perpendicular to the miss vector within this projection.
   const len = Math.hypot(x, y) || 1
   const ux = -y / len
   const uy = x / len
@@ -131,6 +125,7 @@ function Projection({ title, x, y, ySigma, xLabel, yLabel, run, speed }: Project
         <text x={6} y={12} fontSize="9" fontFamily="var(--font-mono)" fill="var(--color-ink-3)">
           {yLabel} ↑
         </text>
+
         {run > 0 && (
           <g key={run}>
             <line x1={toX(from.x)} y1={toY(from.y)} x2={toX(to.x)} y2={toY(to.y)} stroke="var(--color-signal)" strokeOpacity={0.25} strokeDasharray="2 4" />
@@ -146,6 +141,8 @@ function Projection({ title, x, y, ySigma, xLabel, yLabel, run, speed }: Project
             </text>
           </g>
         )}
+
+        {/* radial 1σ bar (supplied radial sigmas only) */}
         {ySigma !== null && (
           <g>
             <line x1={toX(x)} x2={toX(x)} y1={toY(y - ySigma)} y2={toY(y + ySigma)} stroke="var(--color-critical)" strokeOpacity={0.55} strokeDasharray="3 3" />
@@ -161,7 +158,7 @@ function Projection({ title, x, y, ySigma, xLabel, yLabel, run, speed }: Project
           {Math.round(x)}, {Math.round(y)} m
         </text>
       </svg>
-      <p className="mt-1.5 font-mono text-[10px] text-ink-3">{ySigma === null ? `no ${yLabel.split(' ')[0]} sigma supplied — no uncertainty drawn` : `dashed bar: radial 1σ ${ySigma.toFixed(1)} (supplied, units unconfirmed)`}</p>
+      <p className="mt-1.5 font-mono text-[10px] text-ink-3">{ySigma === null ? `no ${yLabel.split(' ')[0]} sigma supplied — no uncertainty drawn` : `dashed bar: radial 1σ ${formatDistance(ySigma)} (supplied)`}</p>
     </figure>
   )
 }
