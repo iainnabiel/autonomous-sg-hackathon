@@ -1,6 +1,6 @@
 {
   "task": "SG-05",
-  "model_version": "upgrade_base-202610310647",
+  "model_version": "upgrade_base-202610310654",
   "config": {
     "run": "upgrade_base",
     "model": "upgrade",

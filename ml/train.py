@@ -65,15 +65,22 @@ def _critical_pr(y: pd.Series, pred: pd.Series) -> tuple[float, float]:
 
 
 def choose_threshold(y: pd.Series, persistence: pd.Series, p_critical: np.ndarray) -> dict:
-    """Most extra Critical catches with upgrade precision >= MIN_UPGRADE_PRECISION (out-of-fold, training)."""
+    """Most extra Critical catches with upgrade precision >= MIN_UPGRADE_PRECISION (out-of-fold, training).
+
+    Ties on catches go to the threshold with fewer false alarms.
+    """
     base_precision, base_recall = _critical_pr(y, persistence)
     best = {"threshold": 1.0, "extra_caught": 0, "extra_false_alarms": 0}
     for t in np.round(np.arange(0.05, 1.0, 0.01), 2):
         _, upgraded = apply_upgrade(persistence, p_critical, t)
         n_up = int(upgraded.sum())
         caught = int((upgraded & (y == "Critical")).sum())
-        if n_up and caught / n_up >= MIN_UPGRADE_PRECISION and caught > best["extra_caught"]:
-            best = {"threshold": float(t), "extra_caught": caught, "extra_false_alarms": n_up - caught}
+        false_alarms = n_up - caught
+        better = caught > best["extra_caught"] or (
+            caught == best["extra_caught"] and caught > 0 and false_alarms < best["extra_false_alarms"]
+        )
+        if n_up and caught / n_up >= MIN_UPGRADE_PRECISION and better:
+            best = {"threshold": float(t), "extra_caught": caught, "extra_false_alarms": false_alarms}
     pred, _ = apply_upgrade(persistence, p_critical, best["threshold"])
     precision, recall = _critical_pr(y, pred)
     best.update(
