@@ -1,9 +1,11 @@
 """SG-03.2 / SG-03.4 evaluation report: validation detection metrics as JSON and Markdown.
 
-The top level follows the dashboard's provisional ``MetricsResponse``
-(``frontend/src/api/types.ts``), so ``/metrics`` can serve the file unchanged.
-SG-03 detail (cohort counts, coverage, the paired trade-off, input checksums and
-cross-checks) is under ``sg03``. Nothing is fitted or tuned here.
+``build_report`` returns the evidence bundle. ``write_report`` stores the served
+body: ``contracts.schemas.MetricsReport`` at the top level plus that bundle under
+``evidence``, which is the dashboard's ``MetricsResponse`` (``frontend/src/api/types.ts``),
+so ``/metrics`` serves the file unchanged. SG-03 detail (cohort counts, coverage,
+the paired trade-off, input checksums and cross-checks) is under ``evidence.sg03``.
+Nothing is fitted or tuned here.
 """
 
 from __future__ import annotations
@@ -11,12 +13,12 @@ from __future__ import annotations
 import json
 import subprocess
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from contracts.policy import POLICY_VERSION
-from contracts.schemas import test_final_tier_accuracy
+from contracts.schemas import MetricResult, MetricsReport, MetricState, test_final_tier_accuracy
 from contracts.tiers import Tier
 from evaluation import sources
 from evaluation.adapters import MLRun, from_ml_validation_csv, load_ml_report
@@ -43,7 +45,6 @@ LIMITATIONS = (
     "compared at an equal false-alarm level.",
     "p_critical is an uncalibrated, class-weighted score for 'final tier is Critical'. It is not a collision "
     "probability (Pc) and is shown only as ranking quality.",
-    "Critical support is small (126 primary validation encounters), so intervals are wide.",
     "Encounters with no eligible early message are unable to assess. They are excluded from tier metrics and "
     "counted separately, never as Safe.",
 )
@@ -152,6 +153,57 @@ def _coverage(labels: dict[object, LabelRecord], cohorts: dict[str, Cohort]) -> 
     }
 
 
+def _bundle_model_version(bundle: Path) -> tuple[str | None, str]:
+    """Read ``model_version`` from a joblib bundle when joblib is installed (ML environment)."""
+
+    try:
+        import joblib  # optional: only present in the ML environment
+    except ImportError:
+        return None, "unverified: joblib not installed"
+    version = joblib.load(bundle).get("model_version")
+    return version, "read from bundle"
+
+
+def _artifacts(runs: Sequence[RunInputs], ml_runs: dict, model_bundle: Path | None, train_sha: str,
+               notes: list[str]) -> dict:
+    """Identify the exact ML run and files scored. Equal metrics do not make different runs interchangeable."""
+
+    records = {}
+    for run in runs:
+        ml_run = ml_runs[run.key]
+        used_train = (ml_run.report.get("data") or {}).get("train_sha256")
+        if used_train and used_train != train_sha:
+            raise ValueError(f"{run.report_json} was produced from a different train_data.csv")
+        record = {
+            "model_version": ml_run.model_version,
+            "report_json": str(run.report_json),
+            "report_json_sha256": sources.file_sha256(run.report_json),
+            "predictions_csv_sha256": sources.file_sha256(run.predictions_csv),
+            "ml_train_sha256": used_train,
+        }
+        committed = sources.ML_REPORTS / f"{run.key}.json"
+        if committed.exists() and committed.resolve() != Path(run.report_json).resolve():
+            committed_version = json.loads(committed.read_text(encoding="utf-8")).get("model_version")
+            record["repository_report_model_version"] = committed_version
+            if committed_version != ml_run.model_version:
+                notes.append(f"{run.key}: this report scores run {ml_run.model_version}; the repository's committed "
+                             f"ml/reports/{run.key}.json is run {committed_version}. Matching metric values do not "
+                             "make the two model artifacts interchangeable.")
+        if run.role == "shipped":
+            if model_bundle is not None and model_bundle.exists():
+                version, check = _bundle_model_version(model_bundle)
+                if version is not None and version != ml_run.model_version:
+                    raise ValueError(f"{model_bundle} is {version}, but {run.report_json} is {ml_run.model_version}")
+                record.update(model_bundle=str(model_bundle), model_bundle_sha256=sources.file_sha256(model_bundle),
+                              bundle_model_version=version, bundle_version_check=check)
+            else:
+                record.update(model_bundle=None, model_bundle_sha256=None, bundle_model_version=None,
+                              bundle_version_check="bundle not available; model artifact not identified")
+                notes.append("The upgrade model bundle was not available, so its artifact is not identified.")
+        records[run.key] = record
+    return records
+
+
 def build_report(
     *,
     train_csv: Path = sources.TRAIN_CSV,
@@ -185,16 +237,19 @@ def build_report(
     ml_runs: dict[str, MLRun] = {}
     joined: dict[str, dict[str, tuple[JoinedRow, ...]]] = {}
     filtered: dict[str, dict[str, int]] = {}
+    ml_checked: dict[str, int] = {}
     for run in runs:
         ml_run = load_ml_report(run.report_json)
         rows, ml_labels = from_ml_validation_csv(run.predictions_csv, ml_run, tca, scored=run.scored)
         _check_ml_labels(ml_labels, labels, problems)
+        ml_checked[run.key] = len(ml_labels)
         problems.raise_if_any()
         ml_runs[run.key] = ml_run
         joined[run.key], filtered[run.key] = {}, {}
         for cohort_id in REPORTED_COHORTS:
             joined[run.key][cohort_id], filtered[run.key][cohort_id] = _join_run(rows, labels, cohorts[cohort_id], run)
 
+    artifacts = _artifacts(runs, ml_runs, model_bundle, checksums["train_data.csv"], notes)
     baseline_run = next(run for run in runs if run.role == "baseline")
     shipped_run = next(run for run in runs if run.role == "shipped")
     shipped = ml_runs[shipped_run.key]
@@ -262,8 +317,8 @@ def build_report(
             "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
             "bundled_on": None,
             "generated_by": "python -m evaluation report",
-            "note": f"Generated {datetime.now(timezone.utc):%Y-%m-%dT%H:%MZ} from local ML validation predictions. "
-                    "Nothing was fitted or tuned by SG-03.",
+            "note": f"Generated {datetime.now(timezone.utc):%Y-%m-%dT%H:%MZ} from ML run {shipped.model_version} "
+                    "(see sg03.artifacts for the exact files). Nothing was fitted or tuned by SG-03.",
         },
         "dataset": {
             "train_sha256": checksums["train_data.csv"],
@@ -274,7 +329,7 @@ def build_report(
                                  "all_usable also includes final_is_early encounters.",
         },
         "model_version": shipped.model_version,
-        "model_sha256": sources.file_sha256(model_bundle) if model_bundle else None,
+        "model_sha256": artifacts[shipped_run.key]["model_bundle_sha256"],
         "policy_version": POLICY_VERSION,
         "thresholds": {
             "upgrade_p_critical": shipped.threshold,
@@ -288,16 +343,26 @@ def build_report(
         "ranking_coverage": dashboard_view(triage[PRIMARY]),
         "sensitivity": None,
         "test": {"state": test_metric.state.value, "reason": test_metric.reason},
-        "limitations": list(LIMITATIONS),
+        "limitations": [*LIMITATIONS,
+                        f"Critical support is small ({cohorts[PRIMARY].support[Tier.CRITICAL]} primary validation "
+                        "encounters), so intervals are wide."],
         "sg03": {
             "schema_version": SCHEMA_VERSION,
             "inputs_sha256": checksums,
+            "artifacts": artifacts,
             "notes": notes,
             "cross_checks": {
-                "organiser_labels_vs_raw_messages": "passed",
-                "split_vs_raw_final_is_early": "passed",
-                "ml_prediction_labels_vs_sg03_labels": "passed",
-                "forecast_source_is_latest_raw_eligible_message": "passed",
+                "note": "Each check stops the report on any disagreement, so a written report means every check "
+                        "passed. Counts are the records checked.",
+                "organiser_labels_vs_raw_messages": {"result": "passed", "encounters": len(labels)},
+                "split_vs_raw_final_is_early": {"result": "passed",
+                                                "encounters": sum(r.partition is not None for r in labels.values())},
+                "ml_prediction_labels_vs_sg03_labels": {"result": "passed",
+                                                        "rows": {key: checked for key, checked in ml_checked.items()}},
+                "forecast_source_is_latest_raw_eligible_message": {
+                    "result": "passed",
+                    "predictions": {key: len(joined[key][ALL_USABLE]) for key in joined},
+                },
             },
             "cohorts": {
                 cohort_id: {
@@ -379,9 +444,61 @@ def to_markdown(payload: dict) -> str:
     return "\n".join(lines)
 
 
+def _metric(name: str, value: float | None, reason: str) -> MetricResult:
+    state = MetricState.REPORTED if value is not None else MetricState.UNAVAILABLE
+    return MetricResult(name=name, value=value, state=state, reason=reason)
+
+
+def to_response(evidence: dict) -> dict:
+    """The served ``/metrics`` body: ``contracts.schemas.MetricsReport`` plus the evidence bundle.
+
+    This is the dashboard's ``MetricsResponse``. Headline values for the primary
+    validation cohort are contract ``MetricResult``s; the full detail is ``evidence``.
+    Per-encounter labels are not served (``labels`` is empty).
+    """
+
+    primary = evidence["sg03"]["comparison"][PRIMARY]
+    n = primary["n"]
+    scope = f"validation primary cohort, n={n}"
+    metrics = []
+    for model in evidence["models"]:
+        cohort = model["cohorts"][PRIMARY]
+        critical = cohort["per_tier"]["Critical"]
+        metrics += [
+            _metric(f"critical_recall:{model['key']}", critical["recall"],
+                    f"{scope}; {critical['support']} final-tier Critical; {model['model_version']}"),
+            _metric(f"false_critical_alarms:{model['key']}", float(cohort["false_critical_alarms"]), scope),
+            _metric(f"critical_false_positive_rate:{model['key']}", cohort["critical_false_positive_rate"]["value"],
+                    f"{scope}; of {primary['non_critical']} non-Critical encounters"),
+        ]
+    metrics += [
+        _metric("extra_critical_caught", float(primary["extra_critical_caught"]), f"{scope}; model vs persistence"),
+        _metric("extra_false_alarms", float(primary["extra_false_alarms"]), f"{scope}; model vs persistence"),
+        _metric("upgrade_precision", primary["upgrade_precision"],
+                f"{scope}; {primary['upgrades']} upgrades; D7 budget is a trade-off constraint"),
+        test_final_tier_accuracy(),
+        MetricResult("predicted_final_pc_error", None, MetricState.NOT_EVALUATED, "the model predicts no Pc"),
+    ]
+    report = MetricsReport(
+        cohort_label="validation primary (final_is_early excluded, D4)",
+        sample_count=n,
+        model_version=evidence["model_version"],
+        policy_version=evidence["policy_version"],
+        metrics=tuple(metrics),
+        labels=(),
+    )
+    body = asdict(report)
+    body["metrics"] = [dict(item, state=item["state"].value) for item in body["metrics"]]
+    body["labels"] = []
+    body["evidence"] = evidence
+    return body
+
+
 def write_report(payload: dict, out_dir: Path = REPORTS_DIR) -> tuple[Path, Path]:
+    """Write the served body (``to_response``) as metrics.json and the evidence as metrics.md."""
+
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path, md_path = out_dir / "metrics.json", out_dir / "metrics.md"
-    json_path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    json_path.write_text(json.dumps(to_response(payload), indent=2, allow_nan=False) + "\n", encoding="utf-8")
     md_path.write_text(to_markdown(payload), encoding="utf-8")
     return json_path, md_path
