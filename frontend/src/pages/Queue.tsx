@@ -3,28 +3,31 @@ import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { fetchQueue } from '../api/client'
 import { useResource } from '../api/useResource'
-import type { Priority, RiskTier } from '../api/types'
+import type { PriorityBand, Tier } from '../api/types'
 import { BandSummary } from '../components/BandSummary'
 import { Page, PageHeader, Panel, PanelHeader } from '../components/layout/Page'
 import { QueueTable } from '../components/QueueTable'
 import { EmptyState, ErrorState, LoadingRows } from '../components/StateViews'
-import { PRIORITY_META, PRIORITY_ORDER, TIER_META } from '../lib/taxonomy'
+import { PRIORITY_META, PRIORITY_ORDER, TIER_META, TIER_ORDER } from '../lib/taxonomy'
 
-const TIERS: (RiskTier | 'unassessed')[] = ['critical', 'elevated', 'safe', 'unassessed']
+type TierFilter = Tier | 'unrated'
+const TIERS: TierFilter[] = [...TIER_ORDER, 'unrated']
 
 export function Queue() {
   const { state, retry } = useResource(fetchQueue, 'queue')
   const navigate = useNavigate()
-  const [bands, setBands] = useState<Set<Priority>>(new Set())
-  const [tiers, setTiers] = useState<Set<RiskTier | 'unassessed'>>(new Set())
+  const [bands, setBands] = useState<Set<PriorityBand>>(new Set())
+  const [tiers, setTiers] = useState<Set<TierFilter>>(new Set())
   const [q, setQ] = useState('')
 
   const data = state.status === 'ready' ? state.data : null
   const filtered = useMemo(() => {
     if (!data) return []
     return data.items.filter((i) => {
-      if (bands.size && !bands.has(i.priority)) return false
-      if (tiers.size && !tiers.has(i.risk_tier ?? 'unassessed')) return false
+      if (bands.size && (!i.priority || !bands.has(i.priority))) return false
+      // Tier filter uses the prioritisation tier: the more severe of current rule tier and forecast.
+      const tier = i.triage?.prioritisation_tier ?? i.current_rule_tier ?? 'unrated'
+      if (tiers.size && !tiers.has(tier)) return false
       if (q && !i.encounter_id.toLowerCase().includes(q.toLowerCase())) return false
       return true
     })
@@ -42,11 +45,11 @@ export function Queue() {
       <PageHeader
         eyebrow="Review queue"
         title={<>Which encounter needs a human next</>}
-        lede="Ordered by review band, then by time to closest approach. Risk tier, urgency and data quality are shown as separate columns so none of them hides another."
+        lede="Ordered by review band, then by time to closest approach. The current rule tier, the forecast final tier, urgency and data quality are separate columns so none of them hides another."
         aside={
           data && (
             <>
-              cohort <span className="text-ink-2">{data.cohort}</span> · model <span className="text-ink-2">{data.model_version}</span> · policy <span className="text-ink-2">{data.policy_version}</span>
+              cohort <span className="text-ink-2">{data.cohort}</span> · model <span className="text-ink-2">{data.model_version ?? '—'}</span> · schema <span className="text-ink-2">{data.policy_version}</span> · triage <span className="text-ink-2">{data.triage_policy_version}</span>
             </>
           )
         }
@@ -64,10 +67,10 @@ export function Queue() {
           note={data ? `${filtered.length} of ${data.items.length}` : undefined}
           action={
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1" role="group" aria-label="Filter by risk tier">
+              <div className="flex items-center gap-1" role="group" aria-label="Filter by prioritisation tier">
                 {TIERS.map((t) => {
                   const on = tiers.has(t)
-                  const meta = t === 'unassessed' ? TIER_META.unknown : TIER_META[t]
+                  const meta = t === 'unrated' ? TIER_META.unknown : TIER_META[t]
                   return (
                     <button
                       key={t}
@@ -76,7 +79,7 @@ export function Queue() {
                       onClick={() => toggle(tiers, t, setTiers)}
                       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${on ? 'border-line-strong bg-raised text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'}`}
                     >
-                      <span className={`size-1.5 rounded-full ${t === 'unassessed' ? 'hatch ring-1 ring-unknown/60' : ''}`} style={t === 'unassessed' ? undefined : { background: meta.color }} />
+                      <span className={`size-1.5 rounded-full ${t === 'unrated' ? 'hatch ring-1 ring-unknown/60' : ''}`} style={t === 'unrated' ? undefined : { background: meta.color }} />
                       {meta.label}
                     </button>
                   )
@@ -109,8 +112,9 @@ export function Queue() {
         {filtered.length > 0 && <QueueTable items={filtered} onOpen={(i) => navigate(`/encounter/${encodeURIComponent(i.encounter_id)}`)} />}
       </Panel>
 
-      <p className="mt-4 font-mono text-[11px] text-ink-3">
-        Bands: {PRIORITY_ORDER.map((p) => `${PRIORITY_META[p].label} — ${PRIORITY_META[p].rule}`).join(' · ')}
+      <p className="mt-4 font-mono text-[11px] leading-relaxed text-ink-3">
+        Bands: {PRIORITY_ORDER.map((p) => `${PRIORITY_META[p].label} — ${PRIORITY_META[p].rule}`).join(' · ')}. Band uses the more severe of the current rule tier and the forecast; neither is overwritten; the class score is not a queue input.
+        {data && <> {data.prototype_notice}</>}
       </p>
     </Page>
   )

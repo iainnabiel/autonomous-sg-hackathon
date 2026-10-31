@@ -133,7 +133,7 @@ sens_version = re.search(r"Frozen model `([^`]+)`", (reports / "sensitivity.md")
 card = (reports / "model_card.md").read_text()
 sha = re.search(r"Bundle SHA-256 \| `([0-9a-f]+)`", card).group(1)
 
-bundle = {
+evidence = {
     "status": "evaluated",
     "provenance": {
         "source": "ml/reports (persistence.json, upgrade_base.json, upgrade_base_mre.json, evaluation.json, failure_analysis.md, sensitivity.md, model_card.md)",
@@ -151,7 +151,6 @@ bundle = {
     },
     "model_version": base["model_version"],
     "model_sha256": sha,
-    "policy_version": "triage-policy-0.1 (prototype)",
     "thresholds": {
         "upgrade_p_critical": base["config"]["threshold_selection"]["threshold"],
         "min_upgrade_precision": base["config"]["threshold_selection"]["min_upgrade_precision"],
@@ -180,5 +179,27 @@ bundle = {
         "ROC-AUC 0.98 includes the easy encounters the rule already flags; within rule misses it is about 0.90.",
     ],
 }
-out.write_text(json.dumps(bundle, indent=2) + "\n")
+shipped = base["validation"]["primary_cohort"]
+rule = persistence["validation"]["primary_cohort"]
+reported = lambda name, value, reason: {"name": name, "value": value, "state": "reported", "reason": reason}
+report = {
+    # contracts.schemas.MetricsReport (SG-01.2); the evidence bundle below is the SG-09 extension.
+    "cohort_label": "validation partition, primary cohort (excludes final_is_early)",
+    "sample_count": shipped["n"],
+    "model_version": base["model_version"],
+    "policy_version": "sg-01.2-sg-01.3",
+    "metrics": [
+        reported("critical_recall", shipped["per_tier"]["Critical"]["recall"], f"shipped upgrade model; {shipped['per_tier']['Critical']['support']} Critical encounters"),
+        reported("critical_recall_persistence_baseline", rule["per_tier"]["Critical"]["recall"], "persistence rule on the latest early message; same cohort"),
+        reported("critical_precision", shipped["per_tier"]["Critical"]["precision"], "shipped upgrade model"),
+        reported("false_critical_alarms", shipped["false_critical_alarms"], f"shipped upgrade model; {rule['false_critical_alarms']} for persistence"),
+        reported("critical_predicted_safe", shipped["critical_predicted_safe"], "neither model rescues these"),
+        reported("all_usable_sample_count", base["validation"]["all_usable"]["n"], "includes final_is_early encounters; reported separately"),
+        {"name": "test_final_tier_accuracy", "value": None, "state": "unavailable", "reason": "Test messages include current risk and have no final outcomes."},
+        {"name": "ranking_coverage_top10_imminent", "value": None, "state": "not_evaluated", "reason": "SG-03.3 queue-usefulness comparison has not been run."},
+    ],
+    "labels": [],
+    "evidence": evidence,
+}
+out.write_text(json.dumps(report, indent=2) + "\n")
 print(f"wrote {out.relative_to(out.parents[2])} from {reports} @ {commit}: {len(models)} models, {len(tca_bands)} TCA bands, {len(masked)} masked rows")

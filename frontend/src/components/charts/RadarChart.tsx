@@ -1,20 +1,26 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { RadarBin } from '../../api/types'
 import { TIER_META } from '../../lib/taxonomy'
 
 const AXIS = { fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--color-ink-3)' }
 const GRID = 'rgb(148 178 230 / 0.08)'
 
-export type TierKey = 'critical' | 'elevated' | 'safe' | 'incomplete'
-export const TIER_KEYS: TierKey[] = ['critical', 'elevated', 'safe', 'incomplete']
+export type TierKey = 'Critical' | 'Elevated' | 'Safe' | 'incomplete'
+export const TIER_KEYS: TierKey[] = ['Critical', 'Elevated', 'Safe', 'incomplete']
 
-function binLabel(b: RadarBin) {
-  return b.to_hours === null ? `${b.from_hours}h+` : `${b.from_hours}–${b.to_hours}h`
+/** One bin of the relative-time summary, with distinct-encounter counts per prioritisation tier. */
+export interface RadarRow {
+  label: string
+  start: number
+  end: number
+  Critical: number
+  Elevated: number
+  Safe: number
+  incomplete: number
 }
 
-/** Encounters by hours to their own closest approach, stacked by risk tier. Status colours, plus a legend and labels. */
-export function RadarChart({ bins, visible }: { bins: RadarBin[]; visible: Record<TierKey, boolean> }) {
-  const data = bins.map((b) => ({ ...b, label: binLabel(b), total: TIER_KEYS.filter((k) => visible[k]).reduce((s, k) => s + b[k], 0) }))
+/** Encounters by hours to their own closest approach, stacked by prioritisation tier. */
+export function RadarChart({ rows, visible }: { rows: RadarRow[]; visible: Record<TierKey, boolean> }) {
+  const data = rows.map((b) => ({ ...b, total: TIER_KEYS.filter((k) => visible[k]).reduce((s, k) => s + b[k], 0) }))
   return (
     <div className="h-72 px-2 pt-6 pb-2">
       <ResponsiveContainer>
@@ -48,16 +54,16 @@ export function RadarChart({ bins, visible }: { bins: RadarBin[]; visible: Recor
   )
 }
 
-function RadarTooltip({ active, payload }: { active?: boolean; payload?: { payload: RadarBin & { label: string } }[] }) {
+function RadarTooltip({ active, payload }: { active?: boolean; payload?: { payload: RadarRow }[] }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
     <div className="rounded-md border border-line-strong bg-raised px-3 py-2 font-mono text-[11px] text-ink-2 shadow-xl">
-      <div className="text-ink">{d.label} to closest approach</div>
+      <div className="text-ink">{d.label} to closest approach · both ends inclusive</div>
       {TIER_KEYS.map((k) => (
         <div key={k} className="mt-0.5 flex items-center gap-2">
           <span className={`size-1.5 rounded-full ${k === 'incomplete' ? 'hatch ring-1 ring-unknown/60' : ''}`} style={k === 'incomplete' ? undefined : { background: TIER_META[k].color }} />
-          <span className="w-20">{k === 'incomplete' ? 'incomplete' : TIER_META[k].label.toLowerCase()}</span>
+          <span className="w-20">{k === 'incomplete' ? 'unrated' : TIER_META[k].label.toLowerCase()}</span>
           <span className="tabular text-ink">{d[k]}</span>
         </div>
       ))}

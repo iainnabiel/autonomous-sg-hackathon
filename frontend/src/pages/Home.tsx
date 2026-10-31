@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { fetchQueue } from '../api/client'
 import { useResource } from '../api/useResource'
-import type { Priority, RiskTier } from '../api/types'
+import type { PriorityBand, Tier } from '../api/types'
 import { GlobeFallback } from '../components/globe/GlobeFallback'
 import { DemoTag, Footer } from '../components/layout/Page'
 import { PRIORITY_META, TIER_META } from '../lib/taxonomy'
@@ -31,9 +31,9 @@ export function Home() {
 function Hero() {
   const { state } = useResource(fetchQueue, 'queue')
   const items = state.status === 'ready' ? state.data.items : null
-  const within24 = items?.filter((i) => i.tca_hours !== null && i.tca_hours <= 24).length
-  const immediate = items?.filter((i) => i.priority === 'immediate').length
-  const incomplete = items?.filter((i) => i.priority === 'incomplete').length
+  const within24 = items?.filter((i) => i.time_to_tca_days >= 0 && i.time_to_tca_days <= 1).length
+  const immediate = items?.filter((i) => i.priority === 'Immediate').length
+  const incomplete = items?.filter((i) => i.priority === 'Incomplete').length
 
   return (
     <section className="relative overflow-hidden border-b border-line">
@@ -140,25 +140,25 @@ function Problem() {
 
 /** Interactive triage matrix: risk tier × urgency → queue band. This is the policy itself, drawn. */
 function Triage() {
-  const tiers: (RiskTier | 'incomplete')[] = ['critical', 'elevated', 'safe', 'incomplete']
+  const tiers: (Tier | 'incomplete')[] = ['Critical', 'Elevated', 'Safe', 'incomplete']
   const cols = [
-    { key: 'soon', label: '≤ 24 h to closest approach' },
-    { key: 'later', label: '> 24 h' },
+    { key: 'soon', label: '≤ 1 day to closest approach (inclusive)' },
+    { key: 'later', label: '> 1 day' },
   ] as const
-  const band = (tier: RiskTier | 'incomplete', col: 'soon' | 'later'): Priority => {
-    if (tier === 'incomplete') return 'incomplete'
-    if (tier === 'critical') return col === 'soon' ? 'immediate' : 'high'
-    if (tier === 'elevated') return col === 'soon' ? 'high' : 'scheduled'
-    return 'routine'
+  const band = (tier: Tier | 'incomplete', col: 'soon' | 'later'): PriorityBand => {
+    if (tier === 'incomplete') return 'Incomplete'
+    if (tier === 'Critical') return col === 'soon' ? 'Immediate' : 'High'
+    if (tier === 'Elevated') return col === 'soon' ? 'High' : 'Scheduled'
+    return 'Routine'
   }
-  const tone: Record<Priority, string> = {
-    immediate: 'bg-critical/15 text-critical border-critical/40',
-    high: 'bg-elevated/12 text-elevated border-elevated/40',
-    scheduled: 'bg-signal/10 text-signal border-signal/35',
-    routine: 'bg-raised text-ink-2 border-line-strong',
-    incomplete: 'hatch text-ink-2 border-unknown/40',
+  const tone: Record<PriorityBand, string> = {
+    Immediate: 'bg-critical/15 text-critical border-critical/40',
+    High: 'bg-elevated/12 text-elevated border-elevated/40',
+    Scheduled: 'bg-signal/10 text-signal border-signal/35',
+    Routine: 'bg-raised text-ink-2 border-line-strong',
+    Incomplete: 'hatch text-ink-2 border-unknown/40',
   }
-  const [hover, setHover] = useState<Priority | null>(null)
+  const [hover, setHover] = useState<PriorityBand | null>(null)
 
   return (
     <Section n="02 — What Orbit adds" title={<>Risk says how dangerous. <span className="accent text-signal">Urgency</span> says how soon.</>} id="how">
@@ -203,7 +203,7 @@ function Triage() {
         </div>
       </div>
       <p className="mt-4 font-mono text-[11px] text-ink-3">
-        Tier thresholds: critical if log₁₀ Pc ≥ −4 or miss &lt; 1 km · elevated if log₁₀ Pc ≥ −6 or miss ≤ 5 km · policy triage-policy-0.1, a prototype.
+        Tier thresholds: Critical if log₁₀ Pc ≥ −4 or miss &lt; 1 km · Elevated if log₁₀ Pc ≥ −6 or miss ≤ 5 km. Band uses the more severe of the current rule tier and the forecast final tier; Routine needs a valid Safe forecast. Policy triage-prototype-sg-01.4, a prototype.
       </p>
     </Section>
   )

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 import { dataSource, fetchMetrics } from '../api/client'
 import { useResource } from '../api/useResource'
-import type { MetricsResponse, ModelResult, RankingCoverage } from '../api/types'
+import type { EvidenceBundle, MetricResult, MetricsResponse, ModelResult, RankingCoverage } from '../api/types'
 import { CoverageChart, type CoverageSeries } from '../components/charts/CoverageChart'
 import { ConfusionMatrix } from '../components/evaluation/ConfusionMatrix'
 import { RecallChart } from '../components/evaluation/RecallChart'
@@ -23,7 +23,7 @@ export function Evaluation() {
         eyebrow="Evaluation"
         title={<>Three separate claims, each with its denominator</>}
         lede="How many critical endings the forecast catches beyond the persistence rule and at what false-alarm cost, how the thresholds classify, and whether the queue surfaces imminent critical encounters earlier than simpler rankings. Validation only: the test file has no outcomes."
-        aside={state.status === 'ready' && state.data.status === 'evaluated' ? <>model <span className="text-ink-2">{state.data.model_version}</span> · policy <span className="text-ink-2">{state.data.policy_version}</span></> : undefined}
+        aside={state.status === 'ready' && state.data.model_version ? <>cohort <span className="text-ink-2">{state.data.cohort_label}</span> · model <span className="text-ink-2">{state.data.model_version}</span> · schema <span className="text-ink-2">{state.data.policy_version}</span></> : undefined}
       />
       {state.status === 'loading' && <LoadingBlock className="mx-0 h-72" />}
       {state.status === 'error' && (
@@ -31,8 +31,44 @@ export function Evaluation() {
           <ErrorState title="Evaluation unavailable" message={state.message} onRetry={retry} />
         </Panel>
       )}
-      {state.status === 'ready' && (state.data.status === 'not_evaluated' ? <NotEvaluated reason={state.data.provenance.note} /> : <Evidence m={state.data} />)}
+      {state.status === 'ready' && (
+        <div className="flex flex-col gap-6">
+          <ContractMetrics report={state.data} />
+          {state.data.evidence && state.data.evidence.status === 'evaluated' ? <Evidence m={state.data.evidence} /> : <NotEvaluated reason={state.data.evidence?.provenance.note ?? 'The backend served the contract metrics report without the evidence bundle.'} />}
+        </div>
+      )}
     </Page>
+  )
+}
+
+/** The contract `MetricsReport` (SG-03.4): each metric carries a state and a reason; undefined ones are marked, never zeroed. */
+function ContractMetrics({ report }: { report: MetricsResponse }) {
+  const tone: Record<MetricResult['state'], string> = { reported: 'text-ink', not_evaluated: 'text-ink-3', unavailable: 'text-elevated/90' }
+  return (
+    <Panel>
+      <PanelHeader title="Metrics report" note={`contracts.schemas.MetricsReport · cohort ${report.cohort_label}${report.sample_count !== null ? ` · n ${report.sample_count.toLocaleString()}` : ''}`} />
+      <table className="w-full font-mono text-[11px]">
+        <thead>
+          <tr className="eyebrow border-b border-line text-[10px]">
+            <th className="px-5 py-2 text-left font-medium">metric</th>
+            <th className="px-3 py-2 text-right font-medium">value</th>
+            <th className="px-3 py-2 text-left font-medium">state</th>
+            <th className="px-5 py-2 text-left font-medium">reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.metrics.map((m) => (
+            <tr key={m.name} className="border-b border-line last:border-0">
+              <td className="px-5 py-1.5 text-ink-2">{m.name}</td>
+              <td className={`tabular px-3 py-1.5 text-right ${tone[m.state]}`}>{m.value === null ? '—' : Number.isInteger(m.value) ? m.value.toLocaleString() : m.value.toFixed(3)}</td>
+              <td className={`px-3 py-1.5 ${tone[m.state]}`}>{m.state.replace('_', ' ')}</td>
+              <td className="px-5 py-1.5 text-ink-3">{m.reason}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {report.labels.length === 0 && <p className="border-t border-line px-5 py-2 text-[11px] text-ink-3">Evaluation labels are not served with this report; they are never part of an inference payload.</p>}
+    </Panel>
   )
 }
 
@@ -50,7 +86,7 @@ function NotEvaluated({ reason }: { reason: string }) {
 const fmt3 = (v: number | null | undefined) => (v === null || v === undefined || Number.isNaN(v) ? 'n/a' : v.toFixed(3))
 const n = (v: number) => v.toLocaleString()
 
-function Evidence({ m }: { m: MetricsResponse }) {
+function Evidence({ m }: { m: EvidenceBundle }) {
   const shipped = m.models.find((x) => x.role === 'shipped') ?? m.models[0]
   const baseline = m.models.find((x) => x.role === 'baseline')
   const primary = shipped.cohorts.primary
@@ -69,9 +105,6 @@ function Evidence({ m }: { m: MetricsResponse }) {
           <span>
             model <span className="text-ink-2">{m.model_version}</span>
             {m.model_sha256 && <span className="text-ink-3/70"> sha256 {m.model_sha256.slice(0, 12)}</span>}
-          </span>
-          <span>
-            policy <span className="text-ink-2">{m.policy_version}</span>
           </span>
           <span>
             split <span className="text-ink-2">{m.dataset.split}</span>
@@ -379,7 +412,7 @@ function ModelRow({ x }: { x: ModelResult }) {
   )
 }
 
-function FoldChart({ cv }: { cv: NonNullable<MetricsResponse['cross_validation']> }) {
+function FoldChart({ cv }: { cv: NonNullable<EvidenceBundle['cross_validation']> }) {
   const keys = Object.keys(cv.per_fold)
   const W = 520
   const H = 150

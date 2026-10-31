@@ -1,14 +1,14 @@
 import { Fragment } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowUpRight, TriangleAlert } from 'lucide-react'
-import type { QueueItem } from '../api/types'
+import type { EncounterListItem } from '../api/types'
 import { formatDistance, formatLogPc, formatScore, formatTca, humanizeCode } from '../lib/format'
 import { PRIORITY_META, PRIORITY_ORDER, REVIEW_META } from '../lib/taxonomy'
-import { PcScale, TierPill } from './Indicators'
+import { ForecastStatusTag, PcScale, TierPill } from './Indicators'
 
 interface Props {
-  items: QueueItem[]
-  onOpen: (item: QueueItem) => void
+  items: EncounterListItem[]
+  onOpen: (item: EncounterListItem) => void
 }
 
 const TH = 'whitespace-nowrap px-3 py-2.5 text-left eyebrow first:pl-5 last:pr-5'
@@ -23,7 +23,12 @@ export function QueueTable({ items, onOpen }: Props) {
         <thead className="border-b border-line">
           <tr>
             <th className={TH}>Encounter</th>
-            <th className={TH}>Risk tier</th>
+            <th className={TH}>
+              Current tier <span className="normal-case tracking-normal text-ink-3/70">· rules</span>
+            </th>
+            <th className={TH}>
+              Forecast final tier <span className="normal-case tracking-normal text-ink-3/70">· model</span>
+            </th>
             <th className={TH}>
               log₁₀ P<sub className="normal-case">c</sub> <span className="normal-case tracking-normal text-ink-3/70">· supplied</span>
             </th>
@@ -32,7 +37,7 @@ export function QueueTable({ items, onOpen }: Props) {
             </th>
             <th className={`${TH} text-right`}>To TCA</th>
             <th className={`${TH} text-right`}>
-              Forecast <span className="normal-case tracking-normal text-ink-3/70">· model</span>
+              p<sub className="normal-case">critical</sub> <span className="normal-case tracking-normal text-ink-3/70">· class score</span>
             </th>
             <th className={`${TH} hidden xl:table-cell`}>Object</th>
             <th className={TH}>Flags</th>
@@ -49,72 +54,75 @@ export function QueueTable({ items, onOpen }: Props) {
             return (
               <Fragment key={band}>
                 <tr>
-                  <th colSpan={10} scope="colgroup" className="border-t border-line bg-base/60 px-5 py-2 text-left">
+                  <th colSpan={11} scope="colgroup" className="border-t border-line bg-base/60 px-5 py-2 text-left">
                     <span className="text-xs font-medium text-ink-2">{PRIORITY_META[band].label}</span>
                     <span className="tabular ml-2 font-mono text-[11px] text-ink-3">{rows.length}</span>
                     <span className="ml-3 hidden text-[11px] text-ink-3 sm:inline">{PRIORITY_META[band].rule}</span>
                   </th>
                 </tr>
-                {rows.map((item) => (
-                  <motion.tr
-                    key={item.encounter_id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 + rowIndex++ * 0.02, duration: 0.3 }}
-                    tabIndex={0}
-                    onClick={() => onOpen(item)}
-                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(item))}
-                    className="group cursor-pointer border-t border-line text-sm outline-none transition-colors hover:bg-raised/60 focus-visible:bg-raised/60"
-                  >
-                    <td className={`${TD} font-mono text-[13px] text-ink`}>{item.encounter_id}</td>
-                    <td className={TD}>
-                      <div className="flex items-center gap-2">
-                        <TierPill tier={item.risk_tier} />
-                        {item.upgraded && (
-                          <span title={`Rule tier ${item.rule_tier}; raised to critical by the model forecast`} className="rounded-sm border border-violet/40 bg-violet/10 px-1 py-px font-mono text-[9px] text-violet">
-                            ↑ model
+                {rows.map((item) => {
+                  const flags = [...item.quality_flags, ...item.model_quality_flags]
+                  const review = item.review
+                  return (
+                    <motion.tr
+                      key={item.encounter_id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.1 + rowIndex++ * 0.02, duration: 0.3 }}
+                      tabIndex={0}
+                      onClick={() => onOpen(item)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(item))}
+                      className="group cursor-pointer border-t border-line text-sm outline-none transition-colors hover:bg-raised/60 focus-visible:bg-raised/60"
+                    >
+                      <td className={`${TD} font-mono text-[13px] text-ink`}>{item.encounter_id}</td>
+                      <td className={TD}>
+                        <TierPill tier={item.current_rule_tier} />
+                      </td>
+                      <td className={TD}>
+                        <div className="flex items-center gap-2">
+                          <TierPill tier={item.forecast.forecast_final_tier} muted={item.forecast.forecast_final_tier === item.current_rule_tier} />
+                          <ForecastStatusTag status={item.forecast.status} />
+                        </div>
+                      </td>
+                      <td className={TD}>
+                        <div className="flex items-center gap-3">
+                          <span className="tabular w-[84px] whitespace-nowrap font-mono text-[13px] text-ink">{formatLogPc(item.supplied_risk_log10_pc)}</span>
+                          <PcScale log10Pc={item.supplied_risk_log10_pc} tier={item.current_rule_tier} />
+                        </div>
+                      </td>
+                      <td className={`${TD} tabular font-mono text-[13px] text-ink-2`}>{formatDistance(item.miss_distance_m)}</td>
+                      <td className={`${TD} tabular text-right font-mono text-[13px] text-ink-2`}>{formatTca(item.time_to_tca_days)}</td>
+                      <td className={`${TD} tabular text-right font-mono text-[12px] text-ink-2`} title="Upgrade classifier score that the final tier is Critical. Not calibrated, not a collision probability.">
+                        {formatScore(item.forecast.p_critical)}
+                      </td>
+                      <td className={`${TD} hidden text-xs text-ink-3 xl:table-cell`}>{item.object_type ?? '—'}</td>
+                      <td className={TD}>
+                        {flags.length > 0 ? (
+                          <span title={flags.map(humanizeCode).join('\n')} className="inline-flex items-center gap-1.5 text-xs text-elevated/90">
+                            <TriangleAlert size={13} strokeWidth={1.8} />
+                            {flags.length}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ink-3">—</span>
+                        )}
+                      </td>
+                      <td className={`${TD} whitespace-nowrap text-xs`}>
+                        {!review || review.status === 'unreviewed' ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1.5 ${review.needs_renewal ? 'text-elevated/90' : 'text-ink-2'}`} title={review.needs_renewal ? review.renewal_reason ?? 'Review needed again' : REVIEW_META[review.status].hint}>
+                            {review.needs_renewal && <span className="size-1.5 rounded-full bg-elevated" />}
+                            {review.status === 'escalated' ? 'Escalated' : 'Acknowledged'}
+                            {review.needs_renewal && <span className="text-[10px]">· renew</span>}
                           </span>
                         )}
-                      </div>
-                    </td>
-                    <td className={TD}>
-                      <div className="flex items-center gap-3">
-                        <span className="tabular w-[84px] whitespace-nowrap font-mono text-[13px] text-ink">{formatLogPc(item.log10_pc)}</span>
-                        <PcScale log10Pc={item.log10_pc} tier={item.rule_tier} />
-                      </div>
-                    </td>
-                    <td className={`${TD} tabular font-mono text-[13px] text-ink-2`}>{formatDistance(item.miss_distance_m)}</td>
-                    <td className={`${TD} tabular text-right font-mono text-[13px] text-ink-2`}>{formatTca(item.tca_hours)}</td>
-                    <td className={`${TD} tabular text-right font-mono text-[12px]`} title="Model score that the encounter ends critical. A ranking score, not a calibrated probability.">
-                      {item.model_status === 'scored' ? <span className="text-ink-2">{formatScore(item.p_critical)}</span> : <span className="text-elevated/90">{item.model_status === 'unable_to_assess' ? 'no score' : 'unavailable'}</span>}
-                    </td>
-                    <td className={`${TD} hidden text-xs text-ink-3 xl:table-cell`}>{item.object_type ?? '—'}</td>
-                    <td className={TD}>
-                      {item.quality_flags.length > 0 ? (
-                        <span title={item.quality_flags.map(humanizeCode).join('\n')} className="inline-flex items-center gap-1.5 text-xs text-elevated/90">
-                          <TriangleAlert size={13} strokeWidth={1.8} />
-                          {item.quality_flags.length}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-ink-3">—</span>
-                      )}
-                    </td>
-                    <td className={`${TD} whitespace-nowrap text-xs`}>
-                      {item.review.status === 'unreviewed' ? (
-                        <span className="text-ink-3">—</span>
-                      ) : (
-                        <span className={`inline-flex items-center gap-1.5 ${item.review.needs_renewal ? 'text-elevated/90' : 'text-ink-2'}`} title={item.review.needs_renewal ? item.review.renewal_reason ?? 'Review needed again' : REVIEW_META[item.review.status].hint}>
-                          {item.review.needs_renewal && <span className="size-1.5 rounded-full bg-elevated" />}
-                          {item.review.status === 'escalated' ? 'Escalated' : 'Acknowledged'}
-                          {item.review.needs_renewal && <span className="text-[10px]">· renew</span>}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`${TD} text-right`}>
-                      <ArrowUpRight size={14} className="inline text-ink-3 transition-colors group-hover:text-signal" />
-                    </td>
-                  </motion.tr>
-                ))}
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <ArrowUpRight size={14} className="inline text-ink-3 transition-colors group-hover:text-signal" />
+                      </td>
+                    </motion.tr>
+                  )
+                })}
               </Fragment>
             )
           })}

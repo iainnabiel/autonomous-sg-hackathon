@@ -1,216 +1,255 @@
-// Provisional frontend view of the shared contracts.
-// SG-01.2 owns the real definitions; replace these once `contracts/` lands.
-//
-// Shapes follow the shipped model (docs/ML_DECISIONS.md, ml/inference.py):
-//   - the organisers' tier rules are applied to the selected observation (rule tier);
-//   - a classifier scores whether the encounter will end critical from messages sent
-//     at least 2 days before closest approach, and may raise the tier, never lower it;
-//   - log10 Pc is a supplied field of each message, not a model output.
+// Frontend copy of the shared contracts in `contracts/` (Iain, SG-01.2 / SG-01.3 / SG-01.4, PRs #18 and #19)
+// and of `backend/risk_classification.py` (SG-02.2, PR #20). Field names, enum values and units follow
+// those modules exactly. Anything the contract does not define yet is marked EXTENSION with the task
+// that owns it; those fields are optional for the backend and the UI copes when they are absent.
 
-export type RiskTier = 'critical' | 'elevated' | 'safe'
+/** Title-case, as in `contracts.tiers.Tier`. */
+export type Tier = 'Safe' | 'Elevated' | 'Critical'
 
-/** Queue band from the triage policy (SG-01.4). `incomplete` is the separate review route. */
-export type Priority = 'immediate' | 'high' | 'scheduled' | 'routine' | 'incomplete'
+/** `contracts.schemas.PriorityBand`. Assigned by the prototype policy in `contracts.triage`. */
+export type PriorityBand = 'Immediate' | 'High' | 'Scheduled' | 'Routine' | 'Incomplete'
 
-/** Whether the rule assessment of the selected observation could be completed. */
-export type AssessmentStatus = 'assessed' | 'incomplete'
+/** `contracts.forecast.ForecastStatus`. */
+export type ForecastStatus = 'available' | 'unable_to_assess' | 'unavailable' | 'carried_forward'
+
+/** `contracts.forecast.ReasonCode`. */
+export type ReasonCode = 'no_eligible_observation' | 'unsupported_tca' | 'model_unavailable' | 'forecast_carried_forward' | 'current_critical_trigger' | 'test_final_outcome_absent'
+
+/** `contracts.schemas.QualityFlag`. */
+export type QualityFlag = 'imputed_optional_input' | 'missing_required_input' | 'inference_unavailable' | 'carried_forward' | 'sigma_units_unconfirmed'
+
+/** `contracts.triage.PriorityReason`. */
+export type PriorityReason =
+  | 'current_evidence'
+  | 'forecast'
+  | 'time_within_one_day'
+  | 'current_not_downgraded'
+  | 'forecast_escalation'
+  | 'incomplete_review'
+  | 'forecast_not_treated_as_safe'
+  | 'carried_forward'
+  | 'excluded_negative_tca'
+
+/** `backend.risk_classification.RiskRule`: which threshold an input met. */
+export type RiskRule = 'probability_critical' | 'probability_elevated' | 'distance_critical' | 'distance_elevated'
+
+/** `contracts.schemas.MetricState`. */
+export type MetricState = 'reported' | 'not_evaluated' | 'unavailable'
 
 /**
- * Whether the forecast model produced a score. `unable_to_assess`: no message at least
- * 2 days before closest approach. `unavailable`: inference failed; never a silent default.
+ * `contracts.forecast.Forecast`. One encounter-level forecast of the final tier.
+ * `p_critical` is the upgrade classifier's class score: not calibrated, not a collision probability,
+ * never a percentage. The current model leaves both predicted-Pc fields null.
  */
-export type ModelStatus = 'scored' | 'unable_to_assess' | 'unavailable'
+export interface Forecast {
+  status: ForecastStatus
+  forecast_final_tier: Tier | null
+  p_critical: number | null
+  predicted_final_log10_pc: number | null
+  predicted_final_pc: number | null
+  /** The eligible early observation the forecast was made from (time_to_tca ≥ 2 days). */
+  source_observation_id: string | null
+  source_time_to_tca_days: number | null
+  model_version: string | null
+  reason_codes: ReasonCode[]
+}
+
+/** `contracts.observations.Observation`. IDs are `source:row_index`; encounter IDs are `source:event_id`. */
+export interface Observation {
+  observation_id: string
+  encounter_id: string
+  /** Days, as supplied. Hours are a display conversion only. */
+  time_to_tca_days: number
+  /** Supplied log10(Pc) on this message. −30 is the organisers' floor for Pc ≈ 0. */
+  risk_log10_pc: number | null
+  miss_distance_m: number | null
+  relative_speed_m_s: number | null
+  relative_position_r_m: number | null
+  relative_position_t_m: number | null
+  relative_position_n_m: number | null
+  /** EXTENSION (dataset columns, sigma units unconfirmed): supplied radial sigmas and object type. */
+  c_sigma_r?: number | null
+  t_sigma_r?: number | null
+  c_object_type?: string | null
+  f10?: number | null
+  ap?: number | null
+}
+
+/** `contracts.triage.ReviewDecision`, minus the fields already on the list item. */
+export interface ReviewDecision {
+  prioritisation_tier: Tier | null
+  priority: PriorityBand | null
+  in_upcoming_queue: boolean
+  reasons: PriorityReason[]
+  current_time_to_tca_days: number
+  source_observation_id: string | null
+  source_time_to_tca_days: number | null
+  forecast_status: ForecastStatus
+  /** `triage-prototype-sg-01.4`; separate from the schema policy version. */
+  policy_version: string
+  prototype: boolean
+}
 
 export type ReviewStatus = 'unreviewed' | 'acknowledged' | 'escalated'
 
-/** Human review state (SG-02.8). Never changes risk tier or queue band. */
+/** EXTENSION (SG-02.8, not yet in contracts). Human review state; never changes a tier or band. */
 export interface ReviewState {
   status: ReviewStatus
-  /** Observation the review was recorded against; null when unreviewed. */
   observation_id: string | null
-  /** Set by the backend when a tier escalation, urgent-window entry, or assessment failure happened after the review. */
   needs_renewal: boolean
   renewal_reason: string | null
-  /** Where the backend keeps review state, e.g. "in-memory, lost on restart". */
   storage: string
 }
 
-export interface QueueItem {
-  /** Source-qualified encounter ID, e.g. `train:1234`. */
+/** `contracts.schemas.EncounterListItem` plus marked extensions. */
+export interface EncounterListItem {
   encounter_id: string
-  /** Stable ID of the selected observation: smallest non-negative time to closest approach (SG-01.3). */
+  /** Selected observation: smallest non-negative time_to_tca (SG-01.3). */
   observation_id: string
-  priority: Priority
-  status: AssessmentStatus
-  model_status: ModelStatus
-  /** Operational tier: rule tier, raised to critical when the model upgraded it. Null when incomplete. */
-  risk_tier: RiskTier | null
-  /** Organisers' thresholds applied to the selected observation's supplied log10 Pc and miss distance. */
-  rule_tier: RiskTier | null
-  /** True when the model raised the rule tier to critical. */
-  upgraded: boolean
-  /** Model score that the encounter ends critical. A ranking score from class-weighted training, not a calibrated probability. */
-  p_critical: number | null
-  /** Supplied log10(Pc) of the selected observation. −30 is a reporting floor (Pc effectively zero). */
-  log10_pc: number | null
-  /** Supplied telemetry, not a model output. Metres. */
+  /** Organiser rules on the selected observation. Null means the inputs cannot place it; null is not Safe. */
+  current_rule_tier: Tier | null
+  forecast: Forecast
+  supplied_risk_log10_pc: number | null
   miss_distance_m: number | null
-  /** Hours until time of closest approach (the dataset supplies days; converted centrally). */
-  tca_hours: number | null
-  quality_flags: string[]
-  reason_codes: string[]
+  time_to_tca_days: number
+  /** Null when the observation is excluded from the upcoming queue (negative TCA). */
+  priority: PriorityBand | null
+  quality_flags: QualityFlag[]
+  model_version: string | null
+  /** Schema policy version, `sg-01.2-sg-01.3`. */
+  policy_version: string
+  /** EXTENSION (SG-01.4 decision record): the triage decision behind `priority`. */
+  triage: ReviewDecision | null
+  /** EXTENSION (dataset `c_object_type`). */
   object_type: string | null
-  review: ReviewState
+  /** EXTENSION (ml.inference quality flags: sigma_placeholder, space_weather_missing, single_early_message). */
+  model_quality_flags: string[]
+  /** EXTENSION (SG-02.8). */
+  review: ReviewState | null
 }
 
 export interface QueueResponse {
-  items: QueueItem[]
-  model_version: string
+  /** Upcoming queue in backend order: band (`contracts.triage.sort_upcoming`), then current TCA, source, event id. */
+  items: EncounterListItem[]
+  model_version: string | null
   policy_version: string
-  /** Describes which cohort the queue is drawn from, e.g. "validation (held-out)". */
+  triage_policy_version: string
+  prototype_notice: string
+  /** Which cohort the queue is drawn from, e.g. "validation (held-out)" or "synthetic development fixtures". */
   cohort: string
 }
 
-/** One observation (conjunction message) of an encounter, in update order. */
-export interface Observation {
+/** `contracts.schemas.HistoryEntry`. */
+export interface HistoryEntry {
+  observation: Observation
+  current_rule_tier: Tier | null
+  forecast: Forecast | null
+}
+
+/** `contracts.schemas.DecisionReceipt` plus marked extensions. */
+export interface DecisionReceipt {
+  encounter_id: string
   observation_id: string
-  /** 1-based position in message order (decreasing time to closest approach). */
-  update_index: number
-  tca_hours: number | null
-  /** Supplied log10(Pc). −30 is a reporting floor. */
-  log10_pc: number | null
+  supplied_risk_log10_pc: number | null
+  current_rule_tier: Tier | null
+  forecast: Forecast
   miss_distance_m: number | null
-  relative_speed_m_s: number | null
-  /** Organisers' rules applied to this message alone. Null if a required input is missing. */
-  rule_tier: RiskTier | null
-  /** True when the message was sent at least 2 days before closest approach and so could be a model input. */
-  model_input: boolean
-  quality_flags: string[]
-}
-
-/** Relative position of the chaser in the target's RTN frame at closest approach. Metres. */
-export interface Geometry {
-  r_m: number | null
-  t_m: number | null
-  n_m: number | null
-  relative_speed_m_s: number | null
-  /** Supplied radial position sigma of the chaser (c_sigma_r). Only radial sigmas are supplied. */
-  c_sigma_r_m: number | null
-  /** Supplied radial position sigma of the target (t_sigma_r). */
-  t_sigma_r_m: number | null
-  /** True when a sigma field held the 6.378136e7 placeholder and was treated as missing. */
-  sigma_placeholder: boolean
-}
-
-export type RuleKind = 'probability' | 'distance' | 'model' | 'urgency' | 'quality'
-
-export interface ReceiptRule {
-  code: string
-  kind: RuleKind
-  description: string
-  triggered: boolean
-  /** The value the rule looked at, formatted by the backend, e.g. "640 m". */
-  evidence: string | null
-}
-
-export interface ReceiptInput {
-  field: string
-  value: string
-  unit: string | null
-  /** Which parts of the assessment read this field. */
-  used_by: ('rule' | 'model')[]
-  imputed: boolean
-  /** Backend note, e.g. "placeholder 6.378e7 treated as missing". */
-  note: string | null
-}
-
-export interface Receipt {
-  observation_id: string
-  /** Latest observation the model could use (time to closest approach ≥ cutoff). Null when the model had none. */
-  model_input_observation_id: string | null
-  model_input_count: number
-  inputs: ReceiptInput[]
-  thresholds: {
-    critical_log10_pc: number
-    elevated_log10_pc: number
-    critical_distance_m: number
-    elevated_distance_m: number
-    urgent_tca_hours: number
-    upgrade_p_critical: number
-    model_input_cutoff_hours: number
-  }
-  rules: ReceiptRule[]
-  rule_tier: RiskTier | null
-  risk_tier: RiskTier | null
-  upgraded: boolean
-  p_critical: number | null
-  model_status: ModelStatus
-  /** Observable facts behind an upgrade, from the backend. Not feature attributions. */
-  upgrade_reasons: string[]
-  /** Which parts of the policy caused the escalation, so they can be distinguished. */
-  escalation_causes: ('probability' | 'distance' | 'model')[]
-  urgency_raised_band: boolean
-  escalation_summary: string
-  /** How each quality flag was handled, keyed by flag code. */
-  quality_handling: { flag: string; handling: string }[]
-  model_version: string
-  model_sha256: string | null
+  time_to_tca_days: number
+  quality_flags: QualityFlag[]
+  reason_codes: ReasonCode[]
+  model_version: string | null
   policy_version: string
+  /** Unit statement from the backend. */
+  units: string
+  /** EXTENSION (SG-02.2 `RiskClassification.triggered_rules`): which thresholds the supplied inputs met. */
+  triggered_rules: RiskRule[]
+  /** EXTENSION (SG-02.2 `RiskClassification.invalid_inputs`). */
+  invalid_inputs: string[]
+  /** EXTENSION (ml.inference `upgrade_reasons`): observable facts behind a model upgrade, not attributions. */
+  upgrade_reasons: string[]
+  /** EXTENSION (ml.inference `quality_flags`). */
+  model_quality_flags: string[]
 }
 
-/** Comparison of one observation with the previous one (SG-02.7). The first observation has no entry. */
+/** EXTENSION (SG-02.7, not yet in contracts). Comparison of one observation with the previous one. */
 export interface ObservationChange {
   from_observation_id: string
   to_observation_id: string
   from_update_index: number
   to_update_index: number
-  tier_before: RiskTier | null
-  tier_after: RiskTier | null
-  /** Threshold rules that started or stopped firing between the two observations. */
-  crossings: { code: string; direction: 'entered' | 'left' }[]
+  tier_before: Tier | null
+  tier_after: Tier | null
+  crossings: { rule: RiskRule; direction: 'entered' | 'left' }[]
   delta_miss_m: number | null
   delta_log10_pc: number | null
-  entered_urgent_window: boolean
-  /** True when this update is the first one inside the model's 2-day cutoff. */
-  crossed_model_cutoff: boolean
+  entered_one_day_window: boolean
+  crossed_early_cutoff: boolean
   new_flags: string[]
   cleared_flags: string[]
-  /** Backend's call: a tier change, threshold crossing, urgent-window entry, or new quality flag. Other deltas are reported but not marked significant. */
   significant: boolean
 }
 
+/** `contracts.schemas.EncounterDetail` plus marked extensions. */
 export interface EncounterDetail {
-  summary: QueueItem
-  history: Observation[]
-  /** Null when the backend does not provide comparisons. */
+  item: EncounterListItem
+  /** Update order: farther from closest approach first (`history_in_update_order`). */
+  history: HistoryEntry[]
+  receipt: DecisionReceipt
+  /** EXTENSION (SG-02.7). Null when the backend does not provide comparisons. */
   changes: ObservationChange[] | null
-  geometry: Geometry
-  receipt: Receipt
 }
 
-export interface RadarBin {
-  /** Inclusive lower bound in hours to closest approach. */
-  from_hours: number
-  /** Exclusive upper bound; null for the open-ended last bin. */
-  to_hours: number | null
-  critical: number
-  elevated: number
-  safe: number
-  incomplete: number
+/** `contracts.schemas.RelativeTimeBin`. Hours are a display conversion of days; both ends inclusive. */
+export interface RelativeTimeBin {
+  start_hours_inclusive: number
+  end_hours_inclusive: number
+  encounter_ids: string[]
+  view_label: string
 }
 
-export interface RadarResponse {
-  bins: RadarBin[]
-  cohort: string
-  /** Text the backend wants shown with the view, e.g. "historical test window; hours are relative to each encounter's own TCA". */
-  caveat: string
+/** `contracts.schemas.RelativeTimeSummary`. */
+export interface RelativeTimeSummary {
+  bins: RelativeTimeBin[]
+  view_label: string
+  policy_version: string
+}
+
+/** `contracts.schemas.MetricResult`. Undefined metrics carry a state and a reason, never a zero. */
+export interface MetricResult {
+  name: string
+  value: number | null
+  state: MetricState
+  reason: string
+}
+
+/** `contracts.schemas.EvaluationLabel`. Never an inference payload. */
+export interface EvaluationLabel {
+  encounter_id: string
+  final_tier: Tier
+  partition: string
+  final_is_early: boolean
+}
+
+/** `contracts.schemas.MetricsReport`. */
+export interface MetricsReport {
+  cohort_label: string
+  sample_count: number | null
+  model_version: string | null
+  policy_version: string
+  metrics: MetricResult[]
+  labels: EvaluationLabel[]
+}
+
+/** `/metrics` (SG-03.4): the contract report, plus the EXTENSION evidence bundle the evaluation page renders. */
+export interface MetricsResponse extends MetricsReport {
+  evidence: EvidenceBundle | null
 }
 
 export type DataSource = 'api' | 'fixture'
 
-// --- Evaluation evidence (SG-03.4 `/metrics`, provisional) -------------------
+// --- EXTENSION: evidence bundle (SG-09.1 proposal for the rich part of /metrics) -------------------
 
-export type TierLabel = 'Critical' | 'Elevated' | 'Safe'
+export type TierLabel = Tier
 
 export interface CohortResult {
   n: number
@@ -219,7 +258,6 @@ export interface CohortResult {
   critical_recall_95ci: [number, number]
   critical_predicted_safe: number
   false_critical_alarms: number
-  /** Reported for completeness; never the headline (predicting everything Safe scores about 0.73). */
   accuracy_not_headline: number
 }
 
@@ -228,9 +266,7 @@ export interface ModelResult {
   label: string
   role: 'baseline' | 'shipped' | 'comparison'
   model_version: string
-  /** Upgrade threshold on p_critical; null for the rule-only baseline. */
   threshold: number | null
-  /** Encounters whose tier the model raised to critical (primary cohort); null when not applicable. */
   upgrades: number | null
   cohorts: { primary: CohortResult; all_usable: CohortResult }
   ranking: { roc_auc: number; pr_auc: number } | null
@@ -238,29 +274,25 @@ export interface ModelResult {
 
 export interface RankingCoverage {
   cohort: string
-  /** Number of encounters in the imminent (urgent-window) subset; the denominator of the imminent curve. */
   urgent_subset_n: number
   imminent_critical_n: number
   all_critical_n: number
   rankings: {
     key: string
     label: string
-    /** [proportion of queue reviewed, proportion of imminent critical encounters covered] pairs. */
     imminent: [number, number][]
     all: [number, number][]
-    /** Null when the subset has no positives (marked not applicable, never zero). */
     top_10_20_30_imminent: [number | null, number | null, number | null]
     top_10_20_30_all: [number | null, number | null, number | null]
   }[]
 }
 
-export interface MetricsResponse {
+export interface EvidenceBundle {
   status: 'evaluated' | 'not_evaluated'
   provenance: { source: string; commit: string | null; branch: string | null; bundled_on: string | null; generated_by: string; note: string }
   dataset: { train_sha256: string; split: string; cohort: string; cohort_definition: string }
   model_version: string
   model_sha256: string | null
-  policy_version: string
   thresholds: { upgrade_p_critical: number; min_upgrade_precision: number; selection: string }
   models: ModelResult[]
   detection: { model: string; support: number; detected: number; missed: number; missed_as_safe: number; false_alarms: number }[]
@@ -273,7 +305,6 @@ export interface MetricsResponse {
     pooled: Record<string, { critical_precision: number; critical_recall: number; critical_f1: number; critical_f2: number; macro_f1: number; false_critical: number; critical_missed_as_safe: number }>
     per_fold: Record<string, { critical_recall: number[] }>
   } | null
-  /** SG-03.3 queue-usefulness comparison. Null until evaluated. */
   ranking_coverage: RankingCoverage | null
   sensitivity: {
     model_version: string
