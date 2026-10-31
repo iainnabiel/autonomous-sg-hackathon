@@ -47,13 +47,13 @@ Expected: the queue loads with the **Demo data** badge (or **Live API** when `VI
 
 Captured from the fixture build for the backup deck. Re-capture after any UI change and after the final merge; note the commit in the filename list below.
 
-| File | Shows | Commit |
+| File | Shows | Captured from |
 | --- | --- | --- |
-| `queue.png` | Review queue, bands and columns | |
-| `encounter-0412.png` | Receipt, review renewal, what changed | |
-| `encounter-0873.png` | Limitation case: safe at the cutoff, critical later | |
-| `evaluation.png` | Validation evidence with denominators | |
-| `overview.png` | Overview and policy matrix | |
+| `queue.png` | Review queue, bands and columns | fixture build, branch `feature/sg-09-evidence-demo`, 2026-10-31 |
+| `encounter-0412.png` | Receipt, review renewal, what changed | same |
+| `encounter-0873.png` | Limitation case: safe at the cutoff, critical later | same |
+| `evaluation.png` | Validation evidence with denominators | same; evidence bundled from `ml/reports` at `475d4e2` |
+| `overview.png` | Overview and policy matrix | same; the hero will change with the overview refinement branch |
 
 Capture command used (headless Chrome, software WebGL):
 
