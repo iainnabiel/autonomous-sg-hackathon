@@ -27,6 +27,7 @@ from evaluation.join import JoinedRow, join
 from evaluation.labels import LabelRecord, derive_labels
 from evaluation.metrics import TIER_ORDER, DetectionResult, average_precision, detect, roc_auc, wilson_interval
 from evaluation.predictions import parse_prediction_rows, validate_predictions
+from evaluation.ranking import dashboard_view, rank_and_cover
 
 SCHEMA_VERSION = "sg-03.v1"
 REPORTS_DIR = sources.REPO_ROOT / "evaluation" / "reports"
@@ -235,6 +236,13 @@ def build_report(
         }
         comparison[cohort_id] = result
 
+    snapshot = {f"{m.source}:{m.row_index}": m for m in messages}
+    ranking = {
+        cohort_id: rank_and_cover(joined[shipped_run.key][cohort_id], joined[baseline_run.key][cohort_id],
+                                  snapshot, cohort_id)
+        for cohort_id in REPORTED_COHORTS
+    }
+
     test_metric = test_final_tier_accuracy()
     return {
         "status": "evaluated",
@@ -267,7 +275,7 @@ def build_report(
         "detection": detection_rows,
         "probability_critical": None,
         "cross_validation": None,
-        "ranking_coverage": None,
+        "ranking_coverage": dashboard_view(ranking[PRIMARY]),
         "sensitivity": None,
         "test": {"state": test_metric.state.value, "reason": test_metric.reason},
         "limitations": list(LIMITATIONS),
@@ -293,6 +301,7 @@ def build_report(
             },
             "predictions_outside_cohort_filtered": filtered,
             "coverage": _coverage(labels, cohorts),
+            "ranking": ranking,
             "comparison": comparison,
             "methods": {
                 "confusion_matrix": "rows actual, columns predicted, order Critical, Elevated, Safe",
@@ -305,7 +314,9 @@ def build_report(
                 {"name": "predicted_final_pc_error", "state": "not_evaluated", "reason": "model_predicts_no_pc"},
                 {"name": "p_critical_calibration", "state": "not_evaluated",
                  "reason": "p_critical is a class-weighted ranking score"},
-                {"name": "ranking_coverage", "state": "not_evaluated", "reason": "SG-03.3 not yet generated"},
+                {"name": "imminent_critical_coverage", "state": "not_applicable",
+                 "reason": "forecasts are made at least 2 days before TCA, so no encounter is in the 1-day "
+                           "urgent window at the snapshot; coverage of final-tier Critical is reported instead"},
             ],
         },
     }
@@ -335,6 +346,13 @@ def to_markdown(payload: dict) -> str:
                          f"{c['false_critical_alarms']} | {_pct(c['critical_false_positive_rate']['value'])} | "
                          f"{c['critical_predicted_safe']} |")
         lines.append("")
+    lines += ["## Triage ranking (primary)", "",
+              "Coverage of final-tier Critical encounters when reviewing the top 10/20/30% of the cohort.", "",
+              "| Ranking | Top 10% | Top 20% | Top 30% |", "| --- | --- | --- | --- |"]
+    for item in payload["sg03"]["ranking"][PRIMARY]["rankings"]:
+        cells = [_pct(entry["coverage"]) if entry else "n/a" for entry in item["final_critical"]["top"]]
+        lines.append(f"| {item['label']} | " + " | ".join(cells) + " |")
+    lines.append("")
     coverage = payload["sg03"]["coverage"]["train_full_dataset"]
     lines += [
         "## Coverage",

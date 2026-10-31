@@ -37,4 +37,4 @@ What the report does:
 - **Comparison:** the upgrade model and persistence are compared on the same encounters. The output reports catches, false alarms, false-positive rates, upgrade precision against the D7 budget, a paired bootstrap interval and exact McNemar. **It is a trade-off, not an equal-false-alarm comparison.**
 - **Nothing is fitted or tuned here.** The threshold comes from `ml/reports/upgrade_base.json`.
 
-The top level of `metrics.json` follows the dashboard's provisional `MetricsResponse` (`frontend/src/api/types.ts`). SG-03 detail is under `sg03`. `ranking_coverage` stays null until SG-03.3 runs.
+The top level of `metrics.json` follows the dashboard's provisional `MetricsResponse` (`frontend/src/api/types.ts`). SG-03 detail is under `sg03`. SG-03.3 ranking coverage is in `ranking_coverage` (the dashboard shape) and `sg03.ranking`. It covers the proposed queue (`contracts.triage`, no `p_critical`), the same queue with persistence, and supplied-risk, distance and TCA baselines, all ranked at each encounter's early-warning snapshot. Positives are final-tier Critical encounters.
