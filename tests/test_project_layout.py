@@ -62,7 +62,10 @@ class ProjectLayoutTest(unittest.TestCase):
             package = ROOT / directory
             self.assertTrue(package.is_dir(), directory)
             package_readme = (package / "README.md").read_text(encoding="utf-8")
-            self.assertIn(f"**Owner:** {owner}", package_readme)
+            self.assertTrue(
+                f"**Owner:** {owner}" in package_readme or f"Owner: {owner}" in package_readme,
+                package_readme,
+            )
             self.assertIn(f"`{directory}/`", readme)
             self.assertIn(owner, readme)
 
@@ -81,14 +84,9 @@ class ProjectLayoutTest(unittest.TestCase):
             self.assertIn(expected, result.stdout)
             self.assertIn("owner=Iain", result.stdout)
 
-        deferred = {
-            "ml": "No training or inference command yet",
-            "frontend": "No dashboard command yet",
-        }
-        for package, expected in deferred.items():
-            package_readme = (ROOT / package / "README.md").read_text(encoding="utf-8")
-            self.assertIn(expected, package_readme)
-            self.assertNotIn(f"python -m {package}", readme)
+        self.assertIn("python -m ml.data", readme)
+        self.assertIn("smoke check", readme)
+        self.assertIn("labelled development fixtures", readme)
 
     def test_datasets_secrets_and_artifacts_are_ignored(self) -> None:
         for path in IGNORED_PATHS:

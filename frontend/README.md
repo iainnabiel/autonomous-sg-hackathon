@@ -6,4 +6,4 @@ Operator dashboard for the review queue, decision receipt, and demo (SG-07 to SG
 
 ## Startup
 
-No dashboard command yet. SG-07.1 adds the app and its startup command. Do not point the UI at fabricated encounters.
+SG-07.1 adds the dashboard and its startup command. Explicitly labelled development fixtures are allowed.

@@ -63,7 +63,7 @@ data.zip
 data(1).zip
 challenge1_event_labels.xlsx
 
-# Large generated model and training artifacts
+# Large generated model and training artifacts. Share models via Drive with checksums.
 *.pkl
 *.pickle
 *.joblib
